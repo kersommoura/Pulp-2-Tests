@@ -19,8 +19,9 @@ from pulp_smash.pulp2.constants import (
 from pulp_smash.pulp2.utils import publish_repo, sync_repo
 
 from pulp_2_tests.constants import (
-    RPM_UNSIGNED_FEED_URL,
     RPM_DATA,
+    RPM_UNSIGNED_FEED_URL,
+    RPM_WITH_MODULES_FEED_URL,
     RPM2_DATA,
 )
 from pulp_2_tests.tests.rpm.api_v2.utils import (
@@ -259,3 +260,67 @@ class BasicTestCase(unittest.TestCase):
                 applicability[0]['consumers'],
                 [consumer['consumer']['id']],
             )
+
+
+class ModuleDependenciesTestCase(unittest.TestCase):
+    """Test content applicability for modular repositories."""
+
+    @classmethod
+    def setUpClass(cls):
+        """Create class-wide variables."""
+        cls.cfg = config.get_config()
+        cls.client = api.Client(cls.cfg, api.json_handler)
+        body = gen_repo(
+           importer_config = {'feed': RPM_WITH_MODULES_FEED_URL},
+           distributors = [gen_distributor(auto_publish = True)]
+        )
+        cls.repo = cls.client.post(REPOSITORY_PATH, body)
+        sync_repo(cls.cfg, cls.repo)
+        cls.repo = cls.client.get(cls.repo['_href'], params={'details': True})
+
+    @classmethod
+    def tearDownClass(cls):
+        """Clean created resources."""
+        if cls.repo:
+            cls.client.delete(cls.repo['_href'])
+
+    def test_module(self):
+        """Test content applicability for modular repository."""
+        # Create the consumer.
+        consumer = self.client.post(CONSUMERS_PATH, gen_consumer())
+        self.addCleanup(self.client.delete, consumer['consumer']['_href'])
+
+        # Bind the consumer.
+        self.client.post(urljoin(consumer['consumer']['_href'], 'bindings/'), {
+            'distributor_id': self.repo['distributors'][0]['id'],
+            'notify_agent': False,
+            'repo_id': self.repo['id'],
+        })
+        modular_profile = {
+            'name':'duck',
+            'stream': 0,
+            'version': '20180704244205',
+            'context': 'deadbeef',
+            'arch': 'noarch',
+        }
+        self.client.post(urljoin(consumer['consumer']['_href'], 'profiles/'), {
+            'content_type': 'modulemd',
+            'profile': [modular_profile]
+        })
+
+        # Regenerate applicability.
+        self.client.post(CONSUMERS_ACTIONS_CONTENT_REGENERATE_APPLICABILITY_PATH, {
+            'consumer_criteria': {
+                'filters': {'id': {'$in': [consumer['consumer']['id']]}}
+            }
+        })
+
+        # Fetch applicability.
+        applicability = self.client.post(CONSUMERS_CONTENT_APPLICABILITY_PATH, {
+            'criteria': {
+                'filters': {'id': {'$in': [consumer['consumer']['id']]}}
+            },
+        })
+
+        from pprint import pprint
+        pprint(applicability)
