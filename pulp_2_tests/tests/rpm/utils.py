@@ -161,6 +161,22 @@ def os_is_rhel6(cfg):
     return response.returncode == 0
 
 
+def os_is_rhel7(cfg):
+    """Return ``True`` if the server runs RHEL 7, or ``False`` otherwise.
+
+    :param cfg: Information about the system
+        being targeted.
+    :returns: True or false.
+    """
+    response = cli.Client(cfg, cli.echo_handler).run((
+        'grep',
+        '-i',
+        'red hat enterprise linux server release 7',
+        '/etc/redhat-release',
+    ))
+    return response.returncode == 0
+
+
 def rpm_rich_weak_dependencies(cfg):
     """Return  ``True`` if the Pulp host supports RPM rich/weak dependencies.
 
@@ -226,6 +242,10 @@ def gen_yum_config_file(cfg, repositoryid, baseurl, name, **kwargs):
     return path
 
 
+def get_dnf_version(cfg):
+    """Return ``dnf`` version installed in a certain host."""
+    return cli.Client(cfg).run(('dnf', '--version')).stdout.split()[0]
+
 def os_support_modularity(cfg, pulp_host=None):
     """Return ``True`` if the server `supports modularity`_, or ``False`` otherwise.
 
@@ -234,8 +254,17 @@ def os_support_modularity(cfg, pulp_host=None):
     :param cfg: Information about the system being targeted.
     :returns: True or False.
     """
-    return (utils.get_os_release_id(cfg, pulp_host) == 'fedora' and
-            utils.get_os_release_version_id(cfg, pulp_host) >= '28')
+    if (
+        utils.get_os_release_id(cfg, pulp_host) == 'fedora' and
+        utils.get_os_release_version_id(cfg, pulp_host) >= '28'
+    ):
+        return True
+    elif os_is_rhel7(cfg) and (
+        Version(get_dnf_version(cfg)) >= Version('2.7.5')
+    ):
+       return True
+    else:
+        return False
 
 
 skip_if = partial(selectors.skip_if, exc=SkipTest)  # pylint:disable=invalid-name

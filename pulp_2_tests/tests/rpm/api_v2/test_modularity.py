@@ -1,6 +1,7 @@
 # coding=utf-8
 """Tests that perform actions over RPM modular repositories."""
 import unittest
+import shlex
 from urllib.parse import urljoin
 from xml.etree import ElementTree
 
@@ -29,6 +30,7 @@ from pulp_2_tests.tests.rpm.api_v2.utils import (
 )
 from pulp_2_tests.tests.rpm.utils import (
     gen_yum_config_file,
+    os_is_rhel7,
     os_support_modularity,
 )
 from pulp_2_tests.tests.rpm.utils import set_up_module as setUpModule  # pylint:disable=unused-import
@@ -229,20 +231,27 @@ class PackageManagerModuleListTestCase(unittest.TestCase):
     """Package manager can read module list from a Pulp repo."""
 
     def test_all(self):
-        """Verify whether package manager can read module list from a Pulp repo."""
+        """Package manager can read module list from a Pulp repo."""
         cfg = config.get_config()
         if cfg.pulp_version < Version('2.17'):
-            raise unittest.SkipTest('This test requires at least Pulp 2.17 or newer.')
+            raise unittest.SkipTest(
+                'This test requires at least Pulp 2.17 or newer.'
+            )
+        cli_client = cli.Client(cfg)
+        if os_is_rhel7(cfg):
+            cli_client.run(shlex.split('yum install -y dnf'))
+            # self.addCleanup(cli_client.run, shlex.split('yum remove -y dnf'))
         if not os_support_modularity(cfg):
-            raise unittest.SkipTest('This test requires an OS that supports modularity.')
+            raise unittest.SkipTest(
+                'This test requires an OS that supports modularity.'
+            )
         client = api.Client(cfg, api.json_handler)
         body = gen_repo(
             importer_config={'feed': RPM_WITH_MODULES_FEED_URL},
             distributors=[gen_distributor()]
         )
-
         repo = client.post(REPOSITORY_PATH, body)
-        self.addCleanup(client.delete, repo['_href'])
+        # self.addCleanup(client.delete, repo['_href'])
         repo = client.get(repo['_href'], params={'details': True})
         sync_repo(cfg, repo)
         publish_repo(cfg, repo)
@@ -256,10 +265,8 @@ class PackageManagerModuleListTestCase(unittest.TestCase):
             name=repo['_href'],
             repositoryid=repo['id']
         )
-        cli_client = cli.Client(cfg)
-        self.addCleanup(cli_client.run, ('rm', repo_path), sudo=True)
-        lines = cli_client.run((
-            ('dnf', 'module', 'list', '--all')
+        # self.addCleanup(cli_client.run, ('rm', repo_path), sudo=True)
+        lines = cli_client.run((shlex.split('dnf module list --all')
         ), sudo=True).stdout.splitlines()
         for key, value in MODULE_FIXTURES_PACKAGES.items():
             with self.subTest(package=key):
