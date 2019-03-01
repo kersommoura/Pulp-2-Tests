@@ -7,7 +7,13 @@ from packaging.version import Version
 from pulp_smash import cli, config, selectors, utils
 from pulp_smash.pulp2.utils import pulp_admin_login, reset_pulp
 
-from pulp_2_tests.constants import RPM_KICKSTART_FEED_URL, RPM_UNSIGNED_FEED_URL
+from pulp_2_tests.constants import (
+    SRPM_DUPLICATE_FEED_URL,
+    SRPM_RICH_WEAK_FEED_URL,
+    RPM_KICKSTART_FEED_URL,
+    RPM_UNSIGNED_FEED_URL,
+)
+
 from pulp_2_tests.tests.rpm.utils import check_issue_2620, set_up_module
 
 
@@ -160,46 +166,85 @@ class ForceSyncTestCase(_BaseTestCase):
         sync_repo(self.cfg, repo_id)
 
         # Delete a random unit from the filesystem.
-        units = self._list_units(self.cfg, unit_type)
+        units = list_units(self.cfg, unit_type)
         unit = random.choice(units)
         cmd = []
         cmd.extend(('rm', '-rf', unit))
         client.run(cmd, sudo=True)
         with self.subTest(comment='verify the unit has been removed'):
-            self.assertEqual(len(self._list_units(self.cfg, unit_type)), len(units) - 1, unit)
+            self.assertEqual(len(list_units(self.cfg, unit_type)), len(units) - 1, unit)
 
         # Sync the repository without --force-full.
         sync_repo(self.cfg, repo_id)
         with self.subTest(comment='verify the unit has not yet been restored'):
-            self.assertEqual(len(self._list_units(self.cfg, unit_type)), len(units) - 1, unit)
+            self.assertEqual(len(list_units(self.cfg, unit_type)), len(units) - 1, unit)
 
         # Sync the repository with --force-full.
         sync_repo(self.cfg, repo_id, force_sync=True)
         with self.subTest(comment='verify the unit has been restored'):
-            self.assertEqual(len(self._list_units(self.cfg, unit_type)), len(units), unit)
+            self.assertEqual(len(list_units(self.cfg, unit_type)), len(units), unit)
 
-    @staticmethod
-    def _list_units(cfg, unit_type):
-        """Return a list of units in ``/var/lib/pulp/content/units/``.
 
-        The unit type can be a number of different types.
+class ForceSyncDuplicateSRPMFailure(unittest.TestCase):
+    """Test a sync with --srpm skip does not fail.
 
-        Examples are:
-        * distribution
-        * rpm
-        * modulemd
-        * modulemd_defaults
+    This test case targets `Pulp #4397`_ and `Pulp #4459`_.
+    The test procedure is as follows:
 
-        This method should be extensible to take any ``unit_type`` and
-        operate as required.
-        """
-        return cli.Client(cfg).run((
-            'find',
-            '/var/lib/pulp/content/units/{}'.format(unit_type[0]),
-            '-type',
-            'f',
-            '-name', '*.{}'.format(unit_type[1])
-        )).stdout.splitlines()
+    1. Create and sync a repository containing duplicate SRPMs with --skip
+    2. Sync the repository. Verify sync is successful.
+
+    A test fixture with duplicate SRPMs is used to retest
+    the initial failure.
+
+    A test fixture with non-duplicated SRPMS is used to verify
+    basic functionality.
+
+    .. _Pulp #4397: https://pulp.plan.io/issues/4397
+    .. _Pulp #4459: https://pulp.plan.io/issues/4459
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        """Create class-wide config."""
+        cls.cfg = config.get_config()
+
+    def test_srpm_duplicate_no_error(self):
+        """Test a forced full sync on Pulp using `--skip srpm`."""
+        self._do_test(('srpm', 'srpm'), SRPM_DUPLICATE_FEED_URL)
+
+    def test_srpm_placebo_no_error(self):
+        """Test a forced full sync on Pulp using `--skip srpm`."""
+        self._do_test(('srpm', 'srpm'), SRPM_RICH_WEAK_FEED_URL)
+
+    def _do_test(self, unit_type, feed):
+        """Test whether Pulp can sync with --srpm skip."""
+        self.cfg = config.get_config()
+        if self.cfg.pulp_version < Version('2.19'):
+            raise unittest.SkipTest('This test requires Pulp 2.19 or newer.')
+        repo_id = utils.uuid4()
+        client = cli.Client(self.cfg)
+        client.run((
+            'pulp-admin', 'rpm', 'repo', 'create', '--repo-id', repo_id,
+            '--feed', feed, '--skip', 'srpm',
+        ))
+        self.addCleanup(client.run, (
+            'pulp-admin', 'rpm', 'repo', 'delete', '--repo-id', repo_id,
+        ))
+        # Check unit count before and after sync
+        # Should be indentical
+        unit = list_units(self.cfg, unit_type)
+
+        # Verify sync does not contain BZ error
+        proc = sync_repo(self.cfg, repo_id, force_sync=True)
+        for stream in ('stdout', 'stderr'):
+            with self.subTest(stream=stream):
+                self.assertNotIn('Malformed repository:', getattr(proc, stream))
+            with self.subTest(stream=stream):
+                self.assertNotIn('Task Failed', getattr(proc, stream))
+                # Delete a random unit from the filesystem.
+        with self.subTest(comment='verify the unit count is still the same'):
+            self.assertEqual(len(list_units(self.cfg, unit_type)), len(unit), unit)
 
 
 def get_rpm_names(cfg, repo_id):
@@ -218,6 +263,35 @@ def get_rpm_names(cfg, repo_id):
         line.split(keyword)[1].strip() for line in proc.stdout.splitlines()
         if keyword in line
     ]
+
+
+def list_units(cfg, unit_type):
+    """Return a list of units in ``/var/lib/pulp/content/units/``.
+
+    The unit type can be a number of different types.
+
+    Examples are:
+    * distribution
+    * rpm
+    * srpm
+    * drpm
+    * modulemd
+    * modulemd_defaults
+
+    This method should be extensible to take any ``unit_type`` and
+    operate as required.
+    """
+    try:
+        return cli.Client(cfg).run((
+            'find',
+            '/var/lib/pulp/content/units/{}'.format(unit_type[0]),
+            '-type',
+            'f',
+            '-name', '*.{}'.format(unit_type[1])
+        )).stdout.splitlines()
+    except BaseException:
+        # Required if there is no unit_type due to --skip
+        return 'Failure to find that unit_type on the system.'
 
 
 def sync_repo(cfg, repo_id, force_sync=False):
