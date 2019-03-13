@@ -5,6 +5,7 @@ import unittest
 
 from packaging.version import Version
 from pulp_smash import cli, config, selectors, utils
+from pulp_smash.exceptions import CalledProcessError
 from pulp_smash.pulp2.utils import pulp_admin_login, reset_pulp
 
 from pulp_2_tests.constants import (
@@ -189,16 +190,17 @@ class ForceSyncDuplicateSRPMFailure(unittest.TestCase):
     """Test a sync with --srpm skip does not fail.
 
     This test case targets `Pulp #4397`_ and `Pulp #4459`_.
+
     The test procedure is as follows:
 
-    1. Create and sync a repository containing duplicate SRPMs with --skip
+    1. Create and sync a repository containing duplicate SRPMs with --skip.
     2. Sync the repository. Verify sync is successful.
 
-    A test fixture with duplicate SRPMs is used to retest
-    the initial failure.
+    A test fixture with duplicate SRPMs is used to retest the initial
+    failure.
 
-    A test fixture with non-duplicated SRPMS is used to verify
-    basic functionality.
+    A test fixture with non-duplicated SRPMS is used to verify basic
+    functionality.
 
     .. _Pulp #4397: https://pulp.plan.io/issues/4397
     .. _Pulp #4459: https://pulp.plan.io/issues/4459
@@ -208,18 +210,23 @@ class ForceSyncDuplicateSRPMFailure(unittest.TestCase):
     def setUpClass(cls):
         """Create class-wide config."""
         cls.cfg = config.get_config()
-
+    
+    def setUp(self):
+        """Delete orphan content units."""
+        cli.Client(config.get_config()).run((
+            'pulp-admin', 'orphan', 'remove', '--all'
+        ))
+    
     def test_srpm_duplicate_no_error(self):
         """Test a forced full sync on Pulp using `--skip srpm`."""
         self._do_test(('srpm', 'srpm'), SRPM_DUPLICATE_FEED_URL)
 
-    def test_srpm_placebo_no_error(self):
-        """Test a forced full sync on Pulp using `--skip srpm`."""
-        self._do_test(('srpm', 'srpm'), SRPM_RICH_WEAK_FEED_URL)
+    # def test_srpm_placebo_no_error(self):
+    #     """Test a forced full sync on Pulp using `--skip srpm`."""
+    #     self._do_test(('srpm', 'srpm'), SRPM_RICH_WEAK_FEED_URL)
 
     def _do_test(self, unit_type, feed):
-        """Test whether Pulp can sync with --srpm skip."""
-        self.cfg = config.get_config()
+        """Test whether Pulp can sync with `--srpm skip`."""
         if self.cfg.pulp_version < Version('2.19'):
             raise unittest.SkipTest('This test requires Pulp 2.19 or newer.')
         repo_id = utils.uuid4()
@@ -233,7 +240,11 @@ class ForceSyncDuplicateSRPMFailure(unittest.TestCase):
         ))
         # Check unit count before and after sync
         # Should be indentical
-        unit = list_units(self.cfg, unit_type)
+        with self.assertRaises(CalledProcessError):
+            list_units(self.cfg, unit_type)
+
+        # from ipdb import set_trace
+        # set_trace()
 
         # Verify sync does not contain BZ error
         proc = sync_repo(self.cfg, repo_id, force_sync=True)
@@ -242,7 +253,8 @@ class ForceSyncDuplicateSRPMFailure(unittest.TestCase):
                 self.assertNotIn('Malformed repository:', getattr(proc, stream))
             with self.subTest(stream=stream):
                 self.assertNotIn('Task Failed', getattr(proc, stream))
-                # Delete a random unit from the filesystem.
+
+        # Delete a random unit from the filesystem.
         with self.subTest(comment='verify the unit count is still the same'):
             self.assertEqual(len(list_units(self.cfg, unit_type)), len(unit), unit)
 
@@ -281,17 +293,13 @@ def list_units(cfg, unit_type):
     This method should be extensible to take any ``unit_type`` and
     operate as required.
     """
-    try:
-        return cli.Client(cfg).run((
-            'find',
-            '/var/lib/pulp/content/units/{}'.format(unit_type[0]),
-            '-type',
-            'f',
-            '-name', '*.{}'.format(unit_type[1])
+    return cli.Client(cfg, cli.echo_handler).run((
+        'find',
+        '/var/lib/pulp/content/units/{}'.format(unit_type[0]),
+        '-type',
+        'f',
+        '-name', '*.{}'.format(unit_type[1])
         )).stdout.splitlines()
-    except BaseException:
-        # Required if there is no unit_type due to --skip
-        return 'Failure to find that unit_type on the system.'
 
 
 def sync_repo(cfg, repo_id, force_sync=False):
