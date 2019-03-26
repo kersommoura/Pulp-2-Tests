@@ -167,10 +167,11 @@ class ManageModularErrataTestCase(unittest.TestCase):
 
         This test case targets:
 
+        * `Pulp #4056 <https://pulp.plan.io/issues/4056>`_.
         * `Pulp #4112 <https://pulp.plan.io/issues/4112>`_.
         """
-        if self.cfg.pulp_version < Version('2.19'):
-            raise unittest.SkipTest('This test requires Pulp 2.19 or newer.')
+        if self.cfg.pulp_version < Version('2.18.1'):
+            raise unittest.SkipTest('This test requires Pulp 2.18.1 or newer.')
 
         # Step 1
         body = gen_repo(
