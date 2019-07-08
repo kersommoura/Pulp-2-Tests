@@ -1,5 +1,6 @@
 TEST_OPTIONS=-m unittest discover --start-directory tests --top-level-directory .
 CPU_COUNT=$(shell python3 -c "from multiprocessing import cpu_count; print(cpu_count())")
+MODIFIED_FILES = $(git diff master..HEAD --name-only | grep '\.py$')
 
 help:
 	@echo "Please use \`make <target>' where <target> is one of:"
@@ -47,14 +48,15 @@ lint: lint-flake8 lint-pylint
 # E501 and F401 are ignored because Pylint performs similar checks.
 # W504 ignore line break after binary operator.
 lint-flake8:
-	flake8 . --ignore E501,F401,W504 --exclude docs/_build,build
+	@echo $(MODIFIED_FILES)
+	flake8 $(MODIFIED_FILES) --ignore E501,F401,W504 --exclude docs/_build,build
 
 # Pulp 2 Test depends on Pulp Smash, and Pulp Smash should be considered a third
 # party library. It appears that when this dependency is satisfied by a local
 # clone of the Pulp Smash repository, pylint will conclude that Pulp Smash is
 # not a third party library.
 lint-pylint:
-	pylint -j $(CPU_COUNT) --reports=n --disable=I,wrong-import-order,simplifiable-if-expression \
+	pylint $(MODIFIED_FILES) -j $(CPU_COUNT) --reports=n --disable=I,wrong-import-order,simplifiable-if-expression \
 		docs/conf.py \
 		pulp_2_tests \
 		setup.py
