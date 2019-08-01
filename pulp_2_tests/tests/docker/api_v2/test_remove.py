@@ -5,10 +5,10 @@ from urllib.parse import urljoin
 
 from pulp_smash import api, config
 from pulp_smash.pulp2.constants import REPOSITORY_PATH
-from pulp_smash.pulp2.utils import search_units, sync_repo
+from pulp_smash.pulp2.utils import publish_repo, search_units, sync_repo
 
 from pulp_2_tests.constants import DOCKER_V2_FEED_URL
-from pulp_2_tests.tests.docker.api_v2.utils import gen_repo
+from pulp_2_tests.tests.docker.api_v2.utils import gen_repo, gen_distributor
 from pulp_2_tests.tests.docker.utils import get_upstream_name
 
 # Dummy Data - Need to datamine a DOCKER repo
@@ -51,11 +51,13 @@ class RemoveV2ContentTestCase(unittest.TestCase):
                 'enable_v2': True,
                 'feed': DOCKER_V2_FEED_URL,
                 'upstream_name': get_upstream_name(self.cfg),
-            }
+            },
+            distributors=[gen_distributor(auto_publish=True)]
         )
         self.repo = self.client.post(REPOSITORY_PATH, body)
         self.addCleanup(self.client.delete, self.repo['_href'])
         sync_repo(self.cfg, self.repo)
+        self.repo = self.client.get(self.repo['_href'], params={'details': True})
 
     def get_docker_units(self, repo, unit_type):
         """Return docker units filtered by type."""
@@ -99,20 +101,23 @@ class RemoveV2ContentTestCase(unittest.TestCase):
         """Sync docker repo and remove all manifest_lists."""
         # Verify initial unit count
         units = self.get_docker_units(self.repo, 'docker_manifest_list')
-        self.assertEqual(len(units), DOCKER_REMOVE['INITIAL']['MANIFEST_LIST'], units)
+        self.assertEqual(
+            len(units), DOCKER_REMOVE['INITIAL']['MANIFEST_LIST'], units)
 
         # Delete by tag - ensure there are no units left
         self.delete_docker_units(self.repo, units)
 
         # Count the remaining units
-        remaining_units = self.get_docker_units(self.repo, 'docker_manifest_list')
+        remaining_units = self.get_docker_units(
+            self.repo, 'docker_manifest_list')
         self.assertEqual(len(remaining_units), 0, remaining_units)
 
     def test_03_remove_manifest_all(self):
         """Sync docker repo and remove all manifests."""
         # Verify initial unit count
         units = self.get_docker_units(self.repo, 'docker_manifest')
-        self.assertEqual(len(units), DOCKER_REMOVE['INITIAL']['MANIFEST'], units)
+        self.assertEqual(
+            len(units), DOCKER_REMOVE['INITIAL']['MANIFEST'], units)
 
         # Delete by tag - ensure there are no units left
         self.delete_docker_units(self.repo, units)
@@ -139,5 +144,16 @@ class RemoveV2ContentTestCase(unittest.TestCase):
         raise unittest.SkipTest('Stubbed test case, Not Implemented Yet')
 
     def test_08_sync_remove_units(self):
-        """Repo A. Sync to fixture-1. Sync to fixture-2."""
-        raise unittest.SkipTest('Stubbed test case, Not Implemented Yet')
+        """Repo A. Sync to fixture-1. Sync to fixture-2.
+
+        1. Create repo A - sync and publish it.
+        2. Create Repo B - sync from repo A.
+        3. Remove a few units from remove A, sync repo B.
+        4. Verify Repo B units.
+        """
+        # repo = self.client.get(self.repo['_href'])
+        # publish_repo(self.cfg, self.repo)
+        # repo = self.client.get(self.repo['_href'])
+        # from pprint import pprint
+        # pprint(repo)
+        pass
