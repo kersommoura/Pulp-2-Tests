@@ -12,7 +12,8 @@ from pulp_2_tests.tests.docker.api_v2.utils import gen_repo
 from pulp_2_tests.tests.docker.utils import get_upstream_name
 
 # Dummy Data - Need to datamine a DOCKER repo
-DOCKER_REMOVE = {'INITIAL': {'MANIFEST': 10, 'MANIFEST_LIST': 2, 'BLOB': 8, 'TAG': 13}}
+DOCKER_REMOVE = {'INITIAL': {'MANIFEST': 10,
+                             'MANIFEST_LIST': 2, 'BLOB': 8, 'TAG': 13}}
 
 
 class RemoveV2ContentTestCase(unittest.TestCase):
@@ -99,20 +100,23 @@ class RemoveV2ContentTestCase(unittest.TestCase):
         """Sync docker repo and remove all manifest_lists."""
         # Verify initial unit count
         units = self.get_docker_units(self.repo, 'docker_manifest_list')
-        self.assertEqual(len(units), DOCKER_REMOVE['INITIAL']['MANIFEST_LIST'], units)
+        self.assertEqual(
+            len(units), DOCKER_REMOVE['INITIAL']['MANIFEST_LIST'], units)
 
         # Delete by tag - ensure there are no units left
         self.delete_docker_units(self.repo, units)
 
         # Count the remaining units
-        remaining_units = self.get_docker_units(self.repo, 'docker_manifest_list')
+        remaining_units = self.get_docker_units(
+            self.repo, 'docker_manifest_list')
         self.assertEqual(len(remaining_units), 0, remaining_units)
 
     def test_03_remove_manifest_all(self):
         """Sync docker repo and remove all manifests."""
         # Verify initial unit count
         units = self.get_docker_units(self.repo, 'docker_manifest')
-        self.assertEqual(len(units), DOCKER_REMOVE['INITIAL']['MANIFEST'], units)
+        self.assertEqual(
+            len(units), DOCKER_REMOVE['INITIAL']['MANIFEST'], units)
 
         # Delete by tag - ensure there are no units left
         self.delete_docker_units(self.repo, units)
@@ -141,3 +145,63 @@ class RemoveV2ContentTestCase(unittest.TestCase):
     def test_08_sync_remove_units(self):
         """Repo A. Sync to fixture-1. Sync to fixture-2."""
         raise unittest.SkipTest('Stubbed test case, Not Implemented Yet')
+
+
+class RemoveManifestListTestCase(unittest.TestCase):
+    """Remove manifest list test case.
+
+    This test targets the following issue:
+
+    `Pulp #5161 <https://pulp.plan.io/issues/5161>`_
+    """
+    @classmethod
+    def setUpClass(cls):
+        """Set variables used by each test case."""
+        cls.cfg = config.get_config()
+        cls.client = api.Client(cls.cfg, api.json_handler)
+
+    def setUp(self):
+        """Set variables used by each test case."""
+        self.body = gen_repo(
+            importer_config={
+                'enable_v1': False,
+                'enable_v2': True,
+                'feed': DOCKER_V2_FEED_URL,
+                'upstream_name': 'asmacdo/test-fixture-1',
+            }
+        )
+        self.repo = self.client.post(REPOSITORY_PATH, self.body)
+        self.addCleanup(self.client.delete, self.repo['_href'])
+        sync_repo(self.cfg, self.repo)
+        self.repo = self.client.get(
+            self.repo['_href'], params={'details': True})
+
+    def test_01(self):
+        """Remove."""
+        repo = self.client.post(REPOSITORY_PATH, gen_repo())
+        self.addCleanup(self.client.delete, repo['_href'])
+        self.client.post(urljoin(repo['_href'], 'actions/associate/'), {
+            'criteria': {'filters': {}, 'type_ids': ['docker_manifest_list']},
+            'source_repo_id': self.repo['id'],
+        })
+        repo = self.client.get(repo['_href'], params={'details': True})
+
+        manifest_list_units = search_units(
+            self.cfg, repo, {'type_ids': ['docker_manifest_list']}
+        )
+
+        for unit in manifest_list_units:
+            criteria = {
+                'type_ids': [
+                    'docker_manifest_list',
+                ],
+                'filters': {'unit': {'_id': unit['unit_id']}},
+            }
+            self.client.post(
+                urljoin(repo['_href'], 'actions/unassociate/'),
+                {'source_repo_id': repo['id'], 'criteria': criteria},
+            )
+
+        repo = self.client.get(repo['_href'], params={'details': True})
+
+        self.assertEqual(len(repo['importers'][0]['config']), 0, repo)
