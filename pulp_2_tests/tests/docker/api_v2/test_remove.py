@@ -193,7 +193,7 @@ class RemoveV2ContentTestCase(unittest.TestCase):
     9. Remove some shared manifests lists and verify shared units are not
        recursively removed.
     10. Remove some shared manifests and verify shared units are not
-        recursively removed.
+       recursively removed.
 
     The fixture includes:
 
@@ -240,7 +240,7 @@ class RemoveV2ContentTestCase(unittest.TestCase):
         * B_1
         * B_9
 
-    Tags: 1 for each “top level” (ML_I, ML_II, ML_3, M_E)
+    Tags: 1 for each “top level” (ML_I, ML_II, ML_III, M_E)
 
     This test case targets:
 
@@ -253,9 +253,6 @@ class RemoveV2ContentTestCase(unittest.TestCase):
         """Set cfg and api for each test."""
         cls.cfg = config.get_config()
         cls.client = api.Client(cls.cfg, api.json_handler)
-
-    def setUp(self):
-        """Create a source repo used by each test case."""
         body = gen_repo(
             importer_config={
                 'enable_v1': False,
@@ -264,9 +261,8 @@ class RemoveV2ContentTestCase(unittest.TestCase):
                 'upstream_name': DOCKER_REMOVE_UPSTREAM_NAME,
             }
         )
-        self.repo = self.client.post(REPOSITORY_PATH, body)
-        self.addCleanup(self.client.delete, self.repo['_href'])
-        sync_repo(self.cfg, self.repo)
+        cls.repo = cls.client.post(REPOSITORY_PATH, body)
+        sync_repo(cls.cfg, cls.repo)
 
     def create_and_copy_test_repo(self, source_repo, copy_units):
         """Return test repo to copy units to test."""
@@ -337,11 +333,11 @@ class RemoveV2ContentTestCase(unittest.TestCase):
             repo,
             DOCKER_UNIT_TYPES,
         )
-        for unit in docker_units_count:
-            with self.subTest(unit=unit):
+        for key, value in docker_units_count.items():
+            with self.subTest(key=key):
                 self.assertEqual(
-                    docker_units_count[unit],
-                    DOCKER_REMOVE[state][unit],
+                    value,
+                    DOCKER_REMOVE[state][key],
                     docker_units_count,
                 )
 
