@@ -70,70 +70,64 @@ pytestmark = pytest.mark.recursive_conservative  # pylint:disable=invalid-name
 
 
 # MappingProxyType is used to make an immutable dict.
-MODULES_METADATA = MappingProxyType({
-    'name': MODULE_ERRATA_RPM_DATA['rpm_name'],
-    'stream': MODULE_ERRATA_RPM_DATA['stream_name'],
-    'version': MODULE_ERRATA_RPM_DATA['version'],
-    'context': MODULE_ERRATA_RPM_DATA['context'],
-    'arch': MODULE_ERRATA_RPM_DATA['arch'],
-})
+MODULES_METADATA = MappingProxyType(
+    {
+        "name": MODULE_ERRATA_RPM_DATA["rpm_name"],
+        "stream": MODULE_ERRATA_RPM_DATA["stream_name"],
+        "version": MODULE_ERRATA_RPM_DATA["version"],
+        "context": MODULE_ERRATA_RPM_DATA["context"],
+        "arch": MODULE_ERRATA_RPM_DATA["arch"],
+    }
+)
 """Metadata for a Module."""
 
-MODULES_METADATA_2 = MappingProxyType({
-    'name': MODULE_DATA_2['name'],
-    'stream': MODULE_DATA_2['stream'],
-    'version': MODULE_DATA_2['version'],
-    'context': MODULE_DATA_2['context'],
-    'arch': MODULE_DATA_2['arch'],
-})
+MODULES_METADATA_2 = MappingProxyType(
+    {
+        "name": MODULE_DATA_2["name"],
+        "stream": MODULE_DATA_2["stream"],
+        "version": MODULE_DATA_2["version"],
+        "context": MODULE_DATA_2["context"],
+        "arch": MODULE_DATA_2["arch"],
+    }
+)
 """Metadata for another Module."""
 
 # MappingProxyType is used to make an immutable dict.
-RPM_WITH_ERRATUM_METADATA = MappingProxyType({
-    'name': RPM_DATA['name'],
-    'epoch': RPM_DATA['epoch'],
-    'version': RPM_DATA['version'],
-    'release': int(RPM_DATA['release']),
-    'arch': RPM_DATA['arch'],
-    'vendor': RPM_DATA['metadata']['vendor'],
-})
+RPM_WITH_ERRATUM_METADATA = MappingProxyType(
+    {
+        "name": RPM_DATA["name"],
+        "epoch": RPM_DATA["epoch"],
+        "version": RPM_DATA["version"],
+        "release": int(RPM_DATA["release"]),
+        "arch": RPM_DATA["arch"],
+        "vendor": RPM_DATA["metadata"]["vendor"],
+    }
+)
 """Metadata for an RPM with an associated erratum."""
 
 CONTENT_APPLICABILITY_REPORT_SCHEMA = {
-    '$schema': 'http://json-schema.org/schema#',
-    'title': 'Content Applicability Report',
-    'description': (
-        'Derived from: http://docs.pulpproject.org/'
-        'dev-guide/integration/rest-api/consumer/applicability.html'
-        '#query-content-applicability'
+    "$schema": "http://json-schema.org/schema#",
+    "title": "Content Applicability Report",
+    "description": (
+        "Derived from: http://docs.pulpproject.org/"
+        "dev-guide/integration/rest-api/consumer/applicability.html"
+        "#query-content-applicability"
     ),
-    'type': 'array',
-    'items': {
-        'type': 'object',
-        'properties': {
-            'applicability': {
-                'type': 'object',
-                'properties': {
-                    'erratum': {
-                        'type': 'array',
-                        'items': {'type': 'string'}
-                    },
-                    'modulemd': {
-                        'type': 'array',
-                        'items': {'type': 'string'}
-                    },
-                    'rpm': {
-                        'type': 'array',
-                        'items': {'type': 'string'}
-                    }
-                }
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "applicability": {
+                "type": "object",
+                "properties": {
+                    "erratum": {"type": "array", "items": {"type": "string"}},
+                    "modulemd": {"type": "array", "items": {"type": "string"}},
+                    "rpm": {"type": "array", "items": {"type": "string"}},
+                },
             },
-            'consumers': {
-                'type': 'array',
-                'items': {'type': 'string'}
-            }
-        }
-    }
+            "consumers": {"type": "array", "items": {"type": "string"}},
+        },
+    },
 }
 """A schema for a content applicability report for a consumer.
 
@@ -163,42 +157,34 @@ class CheckIsModularFlagAfterSyncTestCase(unittest.TestCase):
         * `Pulp #4146 <https://pulp.plan.io/issues/4146>`_.
         """
         cfg = config.get_config()
-        if cfg.pulp_version < Version('2.18'):
-            raise unittest.SkipTest('This test requires Pulp 2.18 or newer.')
+        if cfg.pulp_version < Version("2.18"):
+            raise unittest.SkipTest("This test requires Pulp 2.18 or newer.")
         client = api.Client(cfg, api.json_handler)
         body = gen_repo(
-            importer_config={'feed': RPM_WITH_MODULES_FEED_URL},
-            distributors=[gen_distributor()]
+            importer_config={"feed": RPM_WITH_MODULES_FEED_URL},
+            distributors=[gen_distributor()],
         )
         repo = client.post(REPOSITORY_PATH, body)
-        self.addCleanup(client.delete, repo['_href'])
+        self.addCleanup(client.delete, repo["_href"])
         sync_repo(cfg, repo)
-        repo = client.get(repo['_href'], params={'details': True})
+        repo = client.get(repo["_href"], params={"details": True})
         modular_units = search_units(
-            cfg, repo, {
-                'filters': {'unit': {'is_modular': True}},
-                'type_ids': ['rpm'],
-            }
+            cfg, repo, {"filters": {"unit": {"is_modular": True}}, "type_ids": ["rpm"]}
         )
 
         non_modular_units = search_units(
-            cfg, repo, {
-                'filters': {'unit': {'is_modular': False}},
-                'type_ids': ['rpm'],
-            }
+            cfg, repo, {"filters": {"unit": {"is_modular": False}}, "type_ids": ["rpm"]}
         )
 
         # Check the number of modular units returned by `is_modular` as True.
         self.assertEqual(
-            len(modular_units),
-            sum(MODULE_FIXTURES_PACKAGES.values()),
-            modular_units
+            len(modular_units), sum(MODULE_FIXTURES_PACKAGES.values()), modular_units
         )
         # Check the number of modular units returned by `is_modular` as False.
         self.assertEqual(
             len(non_modular_units),
             RPM_UNSIGNED_FEED_COUNT - sum(MODULE_FIXTURES_PACKAGES.values()),
-            non_modular_units
+            non_modular_units,
         )
 
 
@@ -223,36 +209,30 @@ class CheckIsModularFlagAfterRPMUploadTestCase(unittest.TestCase):
         * `Pulp #4930 <https://pulp.plan.io/issues/4930>`_.
         """
         cfg = config.get_config()
-        if cfg.pulp_version < Version('2.20'):
-            raise unittest.SkipTest('This test requires Pulp 2.20 or newer.')
+        if cfg.pulp_version < Version("2.20"):
+            raise unittest.SkipTest("This test requires Pulp 2.20 or newer.")
         if not selectors.bug_is_fixed(4869, cfg.pulp_version):
-            self.skipTest('https://pulp.plan.io/issues/4869')
+            self.skipTest("https://pulp.plan.io/issues/4869")
 
         # Setup Client and gen_repo
         client = api.Client(cfg, api.json_handler)
         repo = client.post(REPOSITORY_PATH, gen_repo())
-        self.addCleanup(client.delete, repo['_href'])
+        self.addCleanup(client.delete, repo["_href"])
 
         # RPM Gets
         modular_rpm = utils.http_get(RPM_WITH_MODULAR_URL)
         non_modular_rpm = utils.http_get(RPM_WITH_VENDOR_URL)
 
         # Upload Units
-        upload_import_unit(cfg, modular_rpm, {'unit_type_id': 'rpm'}, repo)
-        upload_import_unit(cfg, non_modular_rpm, {'unit_type_id': 'rpm'}, repo)
+        upload_import_unit(cfg, modular_rpm, {"unit_type_id": "rpm"}, repo)
+        upload_import_unit(cfg, non_modular_rpm, {"unit_type_id": "rpm"}, repo)
 
         # Find Modular unit counts
         modular_units = search_units(
-            cfg, repo, {
-                'filters': {'unit': {'is_modular': True}},
-                'type_ids': ['rpm'],
-            }
+            cfg, repo, {"filters": {"unit": {"is_modular": True}}, "type_ids": ["rpm"]}
         )
         non_modular_units = search_units(
-            cfg, repo, {
-                'filters': {'unit': {'is_modular': False}},
-                'type_ids': ['rpm'],
-            }
+            cfg, repo, {"filters": {"unit": {"is_modular": False}}, "type_ids": ["rpm"]}
         )
 
         # Check the number of modular units returned by `is_modular` as True.
@@ -269,8 +249,8 @@ class CheckModulesYamlTestCase(unittest.TestCase):
     def setUpClass(cls):
         """Create class wide variables."""
         cls.cfg = config.get_config()
-        if cls.cfg.pulp_version < Version('2.18.1'):
-            raise unittest.SkipTest('This test requires Pulp 2.18.1 or newer.')
+        if cls.cfg.pulp_version < Version("2.18.1"):
+            raise unittest.SkipTest("This test requires Pulp 2.18.1 or newer.")
         cls.client = api.Client(cls.cfg, api.json_handler)
 
     def test_no_modules_yaml_generated_non_modular(self):
@@ -288,21 +268,20 @@ class CheckModulesYamlTestCase(unittest.TestCase):
         * `Pulp #4350 <https://pulp.plan.io/issues/4350>`_.
         """
         body = gen_repo(
-            importer_config={'feed': RPM_UNSIGNED_FEED_URL},
-            distributors=[gen_distributor(auto_publish=True)]
+            importer_config={"feed": RPM_UNSIGNED_FEED_URL},
+            distributors=[gen_distributor(auto_publish=True)],
         )
         # Step 1 and 2
         repo = self.client.post(REPOSITORY_PATH, body)
-        self.addCleanup(self.client.delete, repo['_href'])
+        self.addCleanup(self.client.delete, repo["_href"])
         sync_repo(self.cfg, repo)
-        repo = self.client.get(repo['_href'], params={'details': True})
+        repo = self.client.get(repo["_href"], params={"details": True})
         # Step 3
         files = self.list_repo_data_files(self.cfg, repo)
         # check no modules.yaml.gz is found
         self.assertFalse(bool(files))
         modules_elements = self.get_modules_elements_repomd(
-            self.cfg,
-            repo['distributors'][0]
+            self.cfg, repo["distributors"][0]
         )
         self.assertFalse(bool(modules_elements))
 
@@ -320,14 +299,14 @@ class CheckModulesYamlTestCase(unittest.TestCase):
         * `Pulp #4351 <https://pulp.plan.io/issues/4351>`_.
         """
         body = gen_repo(
-            importer_config={'feed': RPM_WITH_MODULES_SHA1_FEED_URL},
-            distributors=[gen_distributor(auto_publish=True)]
+            importer_config={"feed": RPM_WITH_MODULES_SHA1_FEED_URL},
+            distributors=[gen_distributor(auto_publish=True)],
         )
         # Step 1 and 2
         repo = self.client.post(REPOSITORY_PATH, body)
-        self.addCleanup(self.client.delete, repo['_href'])
+        self.addCleanup(self.client.delete, repo["_href"])
         sync_repo(self.cfg, repo)
-        repo = self.client.get(repo['_href'], params={'details': True})
+        repo = self.client.get(repo["_href"], params={"details": True})
         module_file = self.list_repo_data_files(self.cfg, repo)[0]
         sha_vals = self.get_sha1_vals_file(self.cfg, module_file)
         # sha_vals[0] contains the sha1 checksum of the file
@@ -337,36 +316,37 @@ class CheckModulesYamlTestCase(unittest.TestCase):
     @staticmethod
     def list_repo_data_files(cfg, repo):
         """Return a list of all the files present inside repodata dir."""
-        return cli.Client(cfg).run((
-            'find',
-            '/var/lib/pulp/published/yum/master/yum_distributor/{}/'.format(
-                repo['id']
-            ),
-            '-type',
-            'f',
-            '-name',
-            '*modules.yaml.gz'
-        ), sudo=True).stdout.splitlines()
+        return (
+            cli.Client(cfg)
+            .run(
+                (
+                    "find",
+                    "/var/lib/pulp/published/yum/master/yum_distributor/{}/".format(
+                        repo["id"]
+                    ),
+                    "-type",
+                    "f",
+                    "-name",
+                    "*modules.yaml.gz",
+                ),
+                sudo=True,
+            )
+            .stdout.splitlines()
+        )
 
     @staticmethod
     def get_modules_elements_repomd(cfg, distributor):
         """Return a list of elements present inside the repomd.xml."""
         repomd_xml = get_repodata_repomd_xml(cfg, distributor)
-        xpath = (
-            "{{{namespace}}}data[@type='{type_}']".format(
-                namespace=RPM_NAMESPACES['metadata/repo'],
-                type_='modules'
-            )
+        xpath = "{{{namespace}}}data[@type='{type_}']".format(
+            namespace=RPM_NAMESPACES["metadata/repo"], type_="modules"
         )
         return repomd_xml.findall(xpath)
 
     @staticmethod
     def get_sha1_vals_file(cfg, filepath):
         """Return a list containing sha1 checksum of the file and filepath."""
-        return cli.Client(cfg).run((
-            'sha1sum',
-            filepath
-        ), sudo=True).stdout.split()
+        return cli.Client(cfg).run(("sha1sum", filepath), sudo=True).stdout.split()
 
 
 class CopyModularDefaultsTestCase(unittest.TestCase):
@@ -389,10 +369,10 @@ class CopyModularDefaultsTestCase(unittest.TestCase):
     def setUpClass(cls):
         """Create class wide variables."""
         cls.cfg = config.get_config()
-        if cls.cfg.pulp_version < Version('2.19'):
-            raise unittest.SkipTest('This test requires Pulp 2.19 or newer.')
+        if cls.cfg.pulp_version < Version("2.19"):
+            raise unittest.SkipTest("This test requires Pulp 2.19 or newer.")
         if check_issue_4405(cls.cfg):
-            raise unittest.SkipTest('https://pulp.plan.io/issues/4405')
+            raise unittest.SkipTest("https://pulp.plan.io/issues/4405")
         cls.client = api.Client(cls.cfg, api.json_handler)
 
     def test_copy_modulemd_defaults(self):
@@ -418,53 +398,49 @@ class CopyModularDefaultsTestCase(unittest.TestCase):
     def check_module_total_units(self, repo):
         """Test copy of modulemd_defaults in RPM repository."""
         self.assertEqual(
-            repo['content_unit_counts']['modulemd_defaults'],
-            MODULE_FIXTURES_PACKAGE_STREAM['module_defaults'],
-            repo['content_unit_counts']
+            repo["content_unit_counts"]["modulemd_defaults"],
+            MODULE_FIXTURES_PACKAGE_STREAM["module_defaults"],
+            repo["content_unit_counts"],
         )
         self.assertEqual(
-            repo['total_repository_units'],
-            MODULE_FIXTURES_PACKAGE_STREAM['module_defaults'],
-            repo['total_repository_units']
+            repo["total_repository_units"],
+            MODULE_FIXTURES_PACKAGE_STREAM["module_defaults"],
+            repo["total_repository_units"],
         )
-        self.assertNotIn('rpm', repo['content_unit_counts'])
+        self.assertNotIn("rpm", repo["content_unit_counts"])
 
     def copy_units(self, recursive, recursive_conservative, old_dependency=False):
         """Create two repositories and copy content between them."""
-        criteria = {
-            'filters': {},
-            'type_ids': ['modulemd_defaults'],
-        }
+        criteria = {"filters": {}, "type_ids": ["modulemd_defaults"]}
         repos = []
         body = gen_repo(
-            importer_config={'feed': RPM_WITH_MODULES_FEED_URL},
-            distributors=[gen_distributor()]
+            importer_config={"feed": RPM_WITH_MODULES_FEED_URL},
+            distributors=[gen_distributor()],
         )
         repos.append(self.client.post(REPOSITORY_PATH, body))
-        self.addCleanup(self.client.delete, repos[0]['_href'])
+        self.addCleanup(self.client.delete, repos[0]["_href"])
         sync_repo(self.cfg, repos[0])
         repos.append(self.client.post(REPOSITORY_PATH, gen_repo()))
-        self.addCleanup(self.client.delete, repos[1]['_href'])
+        self.addCleanup(self.client.delete, repos[1]["_href"])
         # Add `old_dependency` for OLD RPM on B
         if old_dependency:
             rpm = utils.http_get(RPM_WITH_OLD_VERSION_URL)
-            upload_import_unit(
-                self.cfg,
-                rpm,
-                {'unit_type_id': 'rpm'}, repos[1]
-            )
-            units = search_units(self.cfg, repos[1], {'type_ids': ['rpm']})
+            upload_import_unit(self.cfg, rpm, {"unit_type_id": "rpm"}, repos[1])
+            units = search_units(self.cfg, repos[1], {"type_ids": ["rpm"]})
             self.assertEqual(len(units), 1, units)
 
-        self.client.post(urljoin(repos[1]['_href'], 'actions/associate/'), {
-            'source_repo_id': repos[0]['id'],
-            'override_config': {
-                'recursive': recursive,
-                'recursive_conservative': recursive_conservative,
+        self.client.post(
+            urljoin(repos[1]["_href"], "actions/associate/"),
+            {
+                "source_repo_id": repos[0]["id"],
+                "override_config": {
+                    "recursive": recursive,
+                    "recursive_conservative": recursive_conservative,
+                },
+                "criteria": criteria,
             },
-            'criteria': criteria
-        })
-        return self.client.get(repos[1]['_href'], params={'details': True})
+        )
+        return self.client.get(repos[1]["_href"], params={"details": True})
 
 
 class CopyModulesTestCase(unittest.TestCase):
@@ -529,17 +505,15 @@ class CopyModulesTestCase(unittest.TestCase):
     def setUpClass(cls):
         """Create class wide variables."""
         cls.cfg = config.get_config()
-        if cls.cfg.pulp_version < Version('2.19'):
-            raise unittest.SkipTest(
-                'This test requires Pulp 2.19 or newer.'
-            )
+        if cls.cfg.pulp_version < Version("2.19"):
+            raise unittest.SkipTest("This test requires Pulp 2.19 or newer.")
         if check_issue_4405(cls.cfg):
-            raise unittest.SkipTest('https://pulp.plan.io/issues/4405')
+            raise unittest.SkipTest("https://pulp.plan.io/issues/4405")
         cls.client = api.Client(cls.cfg, api.json_handler)
         cls.COPY_MODULES_LIST = [MODULE_FIXTURES_PACKAGE_STREAM]
-        if cls.cfg.pulp_version >= Version('2.20'):
+        if cls.cfg.pulp_version >= Version("2.20"):
             if not selectors.bug_is_fixed(4962, cls.cfg.pulp_version):
-                raise unittest.SkipTest('https://pulp.plan.io/issues/4962')
+                raise unittest.SkipTest("https://pulp.plan.io/issues/4962")
             cls.COPY_MODULES_LIST.append(MODULE_FIXTURES_DUCK_4_STREAM)
             cls.COPY_MODULES_LIST.append(MODULE_FIXTURES_DUCK_5_STREAM)
             cls.COPY_MODULES_LIST.append(MODULE_FIXTURES_DUCK_6_STREAM)
@@ -547,35 +521,35 @@ class CopyModulesTestCase(unittest.TestCase):
     def test_copy_modulemd_recursive_nonconservative_no_old_rpm(self):
         """Test modular copy using override_config and no old RPMs."""
         for module in self.COPY_MODULES_LIST:
-            with self.subTest(modules=module['name']):
+            with self.subTest(modules=module["name"]):
                 repo = self.copy_units(True, False, False, module)
                 self.check_module_rpm_total_units(repo, module)
 
     def test_copy_modulemd_recursive_nonconservative_old_rpm(self):
         """Test modular copy using override_config and old RPMs."""
         for module in self.COPY_MODULES_LIST:
-            with self.subTest(modules=module['name']):
+            with self.subTest(modules=module["name"]):
                 repo = self.copy_units(True, False, True, module)
                 self.check_module_rpm_total_units(repo, module)
 
     def test_copy_modulemd_recursive_conservative_no_old_rpm(self):
         """Test modular copy using override_config and no old RPMs."""
         for module in self.COPY_MODULES_LIST:
-            with self.subTest(modules=module['name']):
+            with self.subTest(modules=module["name"]):
                 repo = self.copy_units(True, True, False, module)
                 self.check_module_rpm_total_units(repo, module)
 
     def test_copy_modulemd_nonrecursive_conservative_old_rpm(self):
         """Test modular copy using override_config and old RPMs."""
         for module in self.COPY_MODULES_LIST:
-            with self.subTest(modules=module['name']):
+            with self.subTest(modules=module["name"]):
                 repo = self.copy_units(False, True, True, module)
                 self.check_module_rpm_total_units(repo, module)
 
     def test_copy_modulemd_recursive_conservative_old_rpm(self):
         """Test modular copy using override_config and old RPMs."""
         for module in self.COPY_MODULES_LIST:
-            with self.subTest(modules=module['name']):
+            with self.subTest(modules=module["name"]):
                 repo = self.copy_units(True, True, True, module)
                 self.check_module_rpm_total_units(repo, module)
 
@@ -587,9 +561,9 @@ class CopyModulesTestCase(unittest.TestCase):
         #   module or module's RPM dependencies
         # - Total units (Module and RPMs) copied
         checks = [
-            (repo['content_unit_counts']['modulemd'], 1),
-            (repo['content_unit_counts']['rpm'], module['rpm_count']),
-            (repo['total_repository_units'], module['total_available_units']),
+            (repo["content_unit_counts"]["modulemd"], 1),
+            (repo["content_unit_counts"]["rpm"], module["rpm_count"]),
+            (repo["total_repository_units"], module["total_available_units"]),
         ]
 
         # for loop to give a breakout for any and each individual failures
@@ -601,46 +575,37 @@ class CopyModulesTestCase(unittest.TestCase):
     def copy_units(self, recursive, recursive_conservative, old_rpm, module):
         """Create two repositories and copy content between them."""
         criteria = {
-            'filters': {'unit': {
-                'name': module['name'],
-                'stream': module['stream']
-            }},
-            'type_ids': ['modulemd'],
+            "filters": {"unit": {"name": module["name"], "stream": module["stream"]}},
+            "type_ids": ["modulemd"],
         }
         repos = []
         body = gen_repo(
-            importer_config={'feed': module['feed']},
-            distributors=[gen_distributor()]
+            importer_config={"feed": module["feed"]}, distributors=[gen_distributor()]
         )
         repos.append(self.client.post(REPOSITORY_PATH, body))
-        self.addCleanup(self.client.delete, repos[0]['_href'])
+        self.addCleanup(self.client.delete, repos[0]["_href"])
         sync_repo(self.cfg, repos[0])
         repos.append(self.client.post(REPOSITORY_PATH, gen_repo()))
-        self.addCleanup(self.client.delete, repos[1]['_href'])
+        self.addCleanup(self.client.delete, repos[1]["_href"])
         # Add `old_rpm` for OLD RPM on B
         if old_rpm:
-            rpm = utils.http_get(module['old'])
-            upload_import_unit(
-                self.cfg, rpm,
-                {'unit_type_id': 'rpm'},
-                repos[1]
-            )
-            units = search_units(
-                self.cfg,
-                repos[1],
-                {'type_ids': ['rpm']}
-            )
+            rpm = utils.http_get(module["old"])
+            upload_import_unit(self.cfg, rpm, {"unit_type_id": "rpm"}, repos[1])
+            units = search_units(self.cfg, repos[1], {"type_ids": ["rpm"]})
             self.assertEqual(len(units), 1, units)
 
-        self.client.post(urljoin(repos[1]['_href'], 'actions/associate/'), {
-            'source_repo_id': repos[0]['id'],
-            'override_config': {
-                'recursive': recursive,
-                'recursive_conservative': recursive_conservative,
+        self.client.post(
+            urljoin(repos[1]["_href"], "actions/associate/"),
+            {
+                "source_repo_id": repos[0]["id"],
+                "override_config": {
+                    "recursive": recursive,
+                    "recursive_conservative": recursive_conservative,
+                },
+                "criteria": criteria,
             },
-            'criteria': criteria
-        })
-        return self.client.get(repos[1]['_href'], params={'details': True})
+        )
+        return self.client.get(repos[1]["_href"], params={"details": True})
 
 
 class ManageModularContentTestCase(unittest.TestCase):
@@ -655,8 +620,8 @@ class ManageModularContentTestCase(unittest.TestCase):
     def setUpClass(cls):
         """Create class wide variables."""
         cls.cfg = config.get_config()
-        if cls.cfg.pulp_version < Version('2.17'):
-            raise unittest.SkipTest('This test requires Pulp 2.17 or newer.')
+        if cls.cfg.pulp_version < Version("2.17"):
+            raise unittest.SkipTest("This test requires Pulp 2.17 or newer.")
         cls.client = api.Client(cls.cfg, api.json_handler)
 
     def test_sync_publish_repo(self):
@@ -664,17 +629,12 @@ class ManageModularContentTestCase(unittest.TestCase):
         repo = self.create_sync_modular_repo()
         # Assert that `modulemd` and `modulemd_defaults` are present on the
         # repository.
-        self.assertIsNotNone(repo['content_unit_counts']['modulemd'])
-        self.assertIsNotNone(repo['content_unit_counts']['modulemd_defaults'])
+        self.assertIsNotNone(repo["content_unit_counts"]["modulemd"])
+        self.assertIsNotNone(repo["content_unit_counts"]["modulemd_defaults"])
 
         publish_repo(self.cfg, repo)
 
-        get_repodata(
-            self.cfg,
-            repo['distributors'][0],
-            'modules',
-            api.safe_handler,
-        )
+        get_repodata(self.cfg, repo["distributors"][0], "modules", api.safe_handler)
 
     def test_sync_and_republish_repo(self):
         """Test sync and re-publish modular RPM repository.
@@ -692,40 +652,32 @@ class ManageModularContentTestCase(unittest.TestCase):
         5. Get the number of modules present in the repo updateinfo file.
         6. Assert that the number of modules has not increased.
         """
-        if self.cfg.pulp_version < Version('2.19'):
-            raise unittest.SkipTest('This test requires Pulp 2.19 or newer.')
+        if self.cfg.pulp_version < Version("2.19"):
+            raise unittest.SkipTest("This test requires Pulp 2.19 or newer.")
 
         # Step 1
         repo1 = self.create_sync_modular_repo(cleanup=False)
         publish_repo(self.cfg, repo1)
         # Step 2
         update_info_file1 = get_repodata(
-            self.cfg,
-            repo1['distributors'][0],
-            'updateinfo'
+            self.cfg, repo1["distributors"][0], "updateinfo"
         )
-        first_repo_modules = update_info_file1.findall('.//module')
+        first_repo_modules = update_info_file1.findall(".//module")
         self.assertEqual(
-            len(first_repo_modules),
-            RPM_WITH_MODULES_FEED_COUNT,
-            first_repo_modules
+            len(first_repo_modules), RPM_WITH_MODULES_FEED_COUNT, first_repo_modules
         )
         # Step 3
-        self.client.delete(repo1['_href'])
+        self.client.delete(repo1["_href"])
         # Step 4
         repo2 = self.create_sync_modular_repo()
         publish_repo(self.cfg, repo2)
         # Step 5
         update_info_file2 = get_repodata(
-            self.cfg,
-            repo2['distributors'][0],
-            'updateinfo'
+            self.cfg, repo2["distributors"][0], "updateinfo"
         )
-        second_repo_modules = update_info_file2.findall('.//module')
+        second_repo_modules = update_info_file2.findall(".//module")
         self.assertEqual(
-            len(second_repo_modules),
-            RPM_WITH_MODULES_FEED_COUNT,
-            second_repo_modules
+            len(second_repo_modules), RPM_WITH_MODULES_FEED_COUNT, second_repo_modules
         )
         # step 6
         self.assertEqual(len(first_repo_modules), len(second_repo_modules))
@@ -736,74 +688,71 @@ class ManageModularContentTestCase(unittest.TestCase):
         :returns: repo data that is created and synced with modular content.
         """
         body = gen_repo(
-            importer_config={'feed': RPM_WITH_MODULES_FEED_URL},
-            distributors=[gen_distributor()]
+            importer_config={"feed": RPM_WITH_MODULES_FEED_URL},
+            distributors=[gen_distributor()],
         )
         repo = self.client.post(REPOSITORY_PATH, body)
         if cleanup:
-            self.addCleanup(self.client.delete, repo['_href'])
+            self.addCleanup(self.client.delete, repo["_href"])
         sync_repo(self.cfg, repo)
-        return self.client.get(repo['_href'], params={'details': True})
+        return self.client.get(repo["_href"], params={"details": True})
 
     def test_remove_modulemd(self):
         """Test sync and remove modular RPM repository."""
         if not selectors.bug_is_fixed(3985, self.cfg.pulp_version):
-            raise unittest.SkipTest('https://pulp.plan.io/issues/3985')
+            raise unittest.SkipTest("https://pulp.plan.io/issues/3985")
         repo_initial = self.create_sync_modular_repo()
         criteria = {
-            'filters': {'unit': {
-                'name': MODULE_FIXTURES_PACKAGE_STREAM['name'],
-                'stream': MODULE_FIXTURES_PACKAGE_STREAM['stream']
-            }},
-            'type_ids': ['modulemd'],
+            "filters": {
+                "unit": {
+                    "name": MODULE_FIXTURES_PACKAGE_STREAM["name"],
+                    "stream": MODULE_FIXTURES_PACKAGE_STREAM["stream"],
+                }
+            },
+            "type_ids": ["modulemd"],
         }
         repo = self.remove_module_from_repo(repo_initial, criteria)
         self.assertEqual(
-            repo['content_unit_counts']['modulemd'],
-            repo_initial['content_unit_counts']['modulemd'] - 1,
-            repo['content_unit_counts'])
+            repo["content_unit_counts"]["modulemd"],
+            repo_initial["content_unit_counts"]["modulemd"] - 1,
+            repo["content_unit_counts"],
+        )
         # after removing a module 'X', the number of RPMS in the repo should
         # decrease by the number of RPMS present in 'X'.
         self.assertEqual(
-            repo['content_unit_counts']['rpm'],
-            repo_initial['content_unit_counts']['rpm'] - 1,
-            repo['content_unit_counts'])
-        self.assertIsNotNone(
-            repo['last_unit_removed'],
-            repo['last_unit_removed']
+            repo["content_unit_counts"]["rpm"],
+            repo_initial["content_unit_counts"]["rpm"] - 1,
+            repo["content_unit_counts"],
         )
+        self.assertIsNotNone(repo["last_unit_removed"], repo["last_unit_removed"])
 
     def test_remove_modulemd_defaults(self):
         """Test sync and remove modular RPM repository."""
         repo_initial = self.create_sync_modular_repo()
-        criteria = {
-            'filters': {},
-            'type_ids': ['modulemd_defaults'],
-        }
+        criteria = {"filters": {}, "type_ids": ["modulemd_defaults"]}
         repo = self.remove_module_from_repo(repo_initial, criteria)
         self.assertNotIn(
-            'modulemd_defaults',
-            repo['content_unit_counts'],
-            repo['content_unit_counts'])
+            "modulemd_defaults",
+            repo["content_unit_counts"],
+            repo["content_unit_counts"],
+        )
 
         self.assertEqual(
-            repo['total_repository_units'],
-            (repo_initial['total_repository_units'] -
-             repo_initial['content_unit_counts']['modulemd_defaults']),
-            repo['total_repository_units']
+            repo["total_repository_units"],
+            (
+                repo_initial["total_repository_units"]
+                - repo_initial["content_unit_counts"]["modulemd_defaults"]
+            ),
+            repo["total_repository_units"],
         )
-        self.assertIsNotNone(
-            repo['last_unit_removed'],
-            repo['last_unit_removed']
-        )
+        self.assertIsNotNone(repo["last_unit_removed"], repo["last_unit_removed"])
 
     def remove_module_from_repo(self, repo, criteria):
         """Remove modules from repo."""
         self.client.post(
-            urljoin(repo['_href'], 'actions/unassociate/'),
-            {'criteria': criteria}
+            urljoin(repo["_href"], "actions/unassociate/"), {"criteria": criteria}
         )
-        return self.client.get(repo['_href'], params={'details': True})
+        return self.client.get(repo["_href"], params={"details": True})
 
 
 class ManageModularErrataTestCase(unittest.TestCase):
@@ -820,10 +769,10 @@ class ManageModularErrataTestCase(unittest.TestCase):
     def setUpClass(cls):
         """Create class wide variables."""
         cls.cfg = config.get_config()
-        if cls.cfg.pulp_version < Version('2.18'):
-            raise unittest.SkipTest('This test requires Pulp 2.18 or newer.')
+        if cls.cfg.pulp_version < Version("2.18"):
+            raise unittest.SkipTest("This test requires Pulp 2.18 or newer.")
         if check_issue_4405(cls.cfg):
-            raise unittest.SkipTest('https://pulp.plan.io/issues/4405')
+            raise unittest.SkipTest("https://pulp.plan.io/issues/4405")
         cls.client = api.Client(cls.cfg, api.json_handler)
 
     def test_sync_publish_update_info(self):
@@ -845,13 +794,12 @@ class ManageModularErrataTestCase(unittest.TestCase):
 
         # getting the update info from the fixtures repo
         update_info_fixtures = get_xml_content_from_fixture(
-            fixture_path=RPM_WITH_MODULES_FEED_URL,
-            data_type='updateinfo',
+            fixture_path=RPM_WITH_MODULES_FEED_URL, data_type="updateinfo"
         )
         self.assertEqual(
             self._get_errata_rpm_mapping(update_list),
             self._get_errata_rpm_mapping(update_info_fixtures),
-            'mismatch in the module packages.'
+            "mismatch in the module packages.",
         )
 
     def test_collection_field(self):
@@ -893,23 +841,20 @@ class ManageModularErrataTestCase(unittest.TestCase):
 
         # getting the updateinfo from the fixtures repo
         update_info_fixtures = get_xml_content_from_fixture(
-            fixture_path=RPM_WITH_MODULES_FEED_URL,
-            data_type='updateinfo',
+            fixture_path=RPM_WITH_MODULES_FEED_URL, data_type="updateinfo"
         )
 
         # Errata ID to collection name map in updateinfo of published repo.
         collection_update_list = {
-            update.find('./id').text:
-            update.find('.//collection').attrib['short']
-            for update in update_list.findall('update')
+            update.find("./id").text: update.find(".//collection").attrib["short"]
+            for update in update_list.findall("update")
         }
 
         collections_from_fixtures = {
-            update.find('id').text:
-            'default' if update.find('.//module') is None
-            else update.find('.//module').attrib['name']
-            for update in
-            update_info_fixtures.findall('.//update')
+            update.find("id").text: "default"
+            if update.find(".//module") is None
+            else update.find(".//module").attrib["name"]
+            for update in update_info_fixtures.findall(".//update")
         }
 
         # indexes is used to increase the index of the module in the
@@ -919,15 +864,15 @@ class ManageModularErrataTestCase(unittest.TestCase):
             if val in indexes:
                 indexes[val] += 1
             collections_from_fixtures[key] = (
-                '{}_0_default'.format(repo['id'])
-                if val == 'default'
-                else '{}_{}_{}'.format(repo['id'], indexes[val], val)
+                "{}_0_default".format(repo["id"])
+                if val == "default"
+                else "{}_{}_{}".format(repo["id"], indexes[val], val)
             )
 
         self.assertEqual(
             collections_from_fixtures,
             collection_update_list,
-            'collection names not proper'
+            "collection names not proper",
         )
 
     def test_search_errata(self):
@@ -944,69 +889,55 @@ class ManageModularErrataTestCase(unittest.TestCase):
 
         * `Pulp #4112 <https://pulp.plan.io/issues/4112>`_.
         """
-        if self.cfg.pulp_version < Version('2.19'):
-            raise unittest.SkipTest('This test requires Pulp 2.19 or newer.')
+        if self.cfg.pulp_version < Version("2.19"):
+            raise unittest.SkipTest("This test requires Pulp 2.19 or newer.")
 
         # Step 1
         body = gen_repo(
-            importer_config={'feed': RPM_WITH_MODULES_FEED_URL},
-            distributors=[gen_distributor(auto_publish=True)]
+            importer_config={"feed": RPM_WITH_MODULES_FEED_URL},
+            distributors=[gen_distributor(auto_publish=True)],
         )
         repo = self.client.post(REPOSITORY_PATH, body)
         sync_repo(self.cfg, repo)
-        self.addCleanup(self.client.delete, repo['_href'])
-        repo = self.client.get(repo['_href'], params={'details': True})
+        self.addCleanup(self.client.delete, repo["_href"])
+        repo = self.client.get(repo["_href"], params={"details": True})
         # Step 2
-        update_info_file = get_repodata(
-            self.cfg,
-            repo['distributors'][0],
-            'updateinfo'
-        )
+        update_info_file = get_repodata(self.cfg, repo["distributors"][0], "updateinfo")
         modules = [
-            dict(module.items())
-            for module
-            in update_info_file.findall('.//module')
+            dict(module.items()) for module in update_info_file.findall(".//module")
         ]
         self.assertEqual(len(modules), RPM_WITH_MODULES_FEED_COUNT, modules)
-        expected_fields = {'stream', 'version', 'arch', 'context', 'name'}
+        expected_fields = {"stream", "version", "arch", "context", "name"}
         self.assertTrue(
-            all([expected_fields == set(module.keys()) for module in modules]),
-            modules
+            all([expected_fields == set(module.keys()) for module in modules]), modules
         )
         # Step 3
         modular_units = search_units(
             self.cfg,
             repo,
-            {'filters': {'unit': {'is_modular': True}}, 'type_ids': ['rpm']}
+            {"filters": {"unit": {"is_modular": True}}, "type_ids": ["rpm"]},
         )
         self.assertTrue(
             all(
-                [
-                    module
-                    for module in modular_units
-                    if module['repo_id'] == repo['id']
-                ]
+                [module for module in modular_units if module["repo_id"] == repo["id"]]
             ),
-            modular_units
+            modular_units,
         )
         # Step 4
         erratum_units = search_units(
             self.cfg,
             repo,
-            {
-                'filters': {'unit': {'is_modular': True}},
-                'type_ids': ['erratum']
-            }
+            {"filters": {"unit": {"is_modular": True}}, "type_ids": ["erratum"]},
         )
         self.assertTrue(
             all(
                 [
                     erratum
                     for erratum in erratum_units
-                    if erratum['repo_id'] == repo['id']
+                    if erratum["repo_id"] == repo["id"]
                 ]
             ),
-            erratum_units
+            erratum_units,
         )
 
     def test_upload_errata(self):
@@ -1024,57 +955,49 @@ class ManageModularErrataTestCase(unittest.TestCase):
         """
         # Step 1
         body = gen_repo(
-            importer_config={'feed': RPM_WITH_MODULES_FEED_URL},
-            distributors=[gen_distributor()]
+            importer_config={"feed": RPM_WITH_MODULES_FEED_URL},
+            distributors=[gen_distributor()],
         )
         repo_initial = self.client.post(REPOSITORY_PATH, body)
-        self.addCleanup(self.client.delete, repo_initial['_href'])
+        self.addCleanup(self.client.delete, repo_initial["_href"])
         sync_repo(self.cfg, repo_initial)
         # getting the update info from the published repo
-        repo_initial = self.client.get(
-            repo_initial['_href'],
-            params={'details': True}
-        )
+        repo_initial = self.client.get(repo_initial["_href"], params={"details": True})
 
         # Step 2
         unit = self._gen_modular_errata()
         upload_import_erratum(self.cfg, unit, repo_initial)
-        repo = self.client.get(
-            repo_initial['_href'],
-            params={'details': True}
-        )
+        repo = self.client.get(repo_initial["_href"], params={"details": True})
 
         # Step 3
         publish_repo(
-            self.cfg, repo,
+            self.cfg,
+            repo,
             {
-                'id': repo['distributors'][0]['id'],
-                'override_config': {'force_full': True},
-            })
+                "id": repo["distributors"][0]["id"],
+                "override_config": {"force_full": True},
+            },
+        )
 
         # Step 4
         # upload_info_file - The ``uploadinfo.xml`` of the published repo.
-        update_info_file = get_repodata(
-            self.cfg,
-            repo['distributors'][0],
-            'updateinfo'
-        )
+        update_info_file = get_repodata(self.cfg, repo["distributors"][0], "updateinfo")
 
         # errata_upload - get the errata is uploaded in step 2
         # from the updateinfo.xml.
         errata_upload = [
             update
-            for update in update_info_file.findall('update')
-            if update.find('id').text == unit['id']
+            for update in update_info_file.findall("update")
+            if update.find("id").text == unit["id"]
         ]
 
         self.assertEqual(
-            repo_initial['content_unit_counts']['erratum'] + 1,
-            repo['content_unit_counts']['erratum'],
-            'Erratum count mismatch after uploading.'
+            repo_initial["content_unit_counts"]["erratum"] + 1,
+            repo["content_unit_counts"]["erratum"],
+            "Erratum count mismatch after uploading.",
         )
         self.assertGreater(len(errata_upload), 0)
-        self.assertIsNotNone(errata_upload[0].find('.//module'))
+        self.assertIsNotNone(errata_upload[0].find(".//module"))
 
     def _set_repo_and_get_repo_data(self):
         """Create and Publish the required repo for this class.
@@ -1089,26 +1012,23 @@ class ManageModularErrataTestCase(unittest.TestCase):
             the ``updateinfo.xml`` of the created repo.
         """
         body = gen_repo(
-            importer_config={'feed': RPM_WITH_MODULES_FEED_URL},
-            distributors=[gen_distributor(auto_publish=True)]
+            importer_config={"feed": RPM_WITH_MODULES_FEED_URL},
+            distributors=[gen_distributor(auto_publish=True)],
         )
         repo = self.client.post(REPOSITORY_PATH, body)
-        self.addCleanup(self.client.delete, repo['_href'])
+        self.addCleanup(self.client.delete, repo["_href"])
         sync_repo(self.cfg, repo)
 
         # getting the updateinfo from the published repo
-        repo = self.client.get(repo['_href'], params={'details': True})
-        return repo, get_repodata(
-            self.cfg,
-            repo['distributors'][0], 'updateinfo'
-        )
+        repo = self.client.get(repo["_href"], params={"details": True})
+        return repo, get_repodata(self.cfg, repo["distributors"][0], "updateinfo")
 
     @staticmethod
     def _get_errata_rpm_mapping(xml):
         mapper = {}
-        for update in xml.findall('update'):
-            mapper[update.find('id').text] = [
-                package.text for package in update.findall('.//filename')
+        for update in xml.findall("update"):
+            mapper[update.find("id").text] = [
+                package.text for package in update.findall(".//filename")
             ]
         return mapper
 
@@ -1116,37 +1036,39 @@ class ManageModularErrataTestCase(unittest.TestCase):
     def _gen_modular_errata():
         """Generate and return a modular erratum with a unique ID."""
         return {
-            'id': utils.uuid4(),
-            'status': 'stable',
-            'updated': MODULE_ERRATA_RPM_DATA['updated'],
-            'rights': None,
-            'from': MODULE_ERRATA_RPM_DATA['from'],
-            'description': MODULE_ERRATA_RPM_DATA['description'],
-            'title': MODULE_ERRATA_RPM_DATA['rpm_name'],
-            'issued': MODULE_ERRATA_RPM_DATA['issued'],
-            'relogin_suggested': False,
-            'restart_suggested': False,
-            'solution': None,
-            'summary': None,
-            'pushcount': '1',
-            'version': '1',
-            'references': [],
-            'release': '1',
-            'reboot_suggested': None,
-            'type': 'enhancement',
-            'severity': None,
-            'pkglist': [{
-                'name': MODULE_ERRATA_RPM_DATA['collection_name'],
-                'short': '0',
-                'module': {
-                    'name': MODULE_ERRATA_RPM_DATA['rpm_name'],
-                    'stream': MODULE_ERRATA_RPM_DATA['stream_name'],
-                    'version': MODULE_ERRATA_RPM_DATA['version'],
-                    'arch': MODULE_ERRATA_RPM_DATA['arch'],
-                    'context': MODULE_ERRATA_RPM_DATA['context']
-                },
-                'packages': []
-            }]
+            "id": utils.uuid4(),
+            "status": "stable",
+            "updated": MODULE_ERRATA_RPM_DATA["updated"],
+            "rights": None,
+            "from": MODULE_ERRATA_RPM_DATA["from"],
+            "description": MODULE_ERRATA_RPM_DATA["description"],
+            "title": MODULE_ERRATA_RPM_DATA["rpm_name"],
+            "issued": MODULE_ERRATA_RPM_DATA["issued"],
+            "relogin_suggested": False,
+            "restart_suggested": False,
+            "solution": None,
+            "summary": None,
+            "pushcount": "1",
+            "version": "1",
+            "references": [],
+            "release": "1",
+            "reboot_suggested": None,
+            "type": "enhancement",
+            "severity": None,
+            "pkglist": [
+                {
+                    "name": MODULE_ERRATA_RPM_DATA["collection_name"],
+                    "short": "0",
+                    "module": {
+                        "name": MODULE_ERRATA_RPM_DATA["rpm_name"],
+                        "stream": MODULE_ERRATA_RPM_DATA["stream_name"],
+                        "version": MODULE_ERRATA_RPM_DATA["version"],
+                        "arch": MODULE_ERRATA_RPM_DATA["arch"],
+                        "context": MODULE_ERRATA_RPM_DATA["context"],
+                    },
+                    "packages": [],
+                }
+            ],
         }
 
 
@@ -1175,8 +1097,8 @@ class ModularApplicabilityTestCase(unittest.TestCase):
     def setUpClass(cls):
         """Create class-wide variables."""
         cls.cfg = config.get_config()
-        if cls.cfg.pulp_version < Version('2.18'):
-            raise unittest.SkipTest('This test requires Pulp 2.18 or newer.')
+        if cls.cfg.pulp_version < Version("2.18"):
+            raise unittest.SkipTest("This test requires Pulp 2.18 or newer.")
         cls.client = api.Client(cls.cfg, api.json_handler)
 
     def test_modular_rpm(self):
@@ -1191,18 +1113,15 @@ class ModularApplicabilityTestCase(unittest.TestCase):
         """
         # Reduce the versions to check whether newer version applies.
         rpm_with_modules_metadata = MODULE_ARTIFACT_RPM_DATA.copy()
-        rpm_with_modules_metadata['version'] = '5'
+        rpm_with_modules_metadata["version"] = "5"
         modules_metadata = MODULES_METADATA.copy()
-        applicability = self.do_test(
-            [modules_metadata],
-            [rpm_with_modules_metadata]
-        )
+        applicability = self.do_test([modules_metadata], [rpm_with_modules_metadata])
         validate(applicability, CONTENT_APPLICABILITY_REPORT_SCHEMA)
-        with self.subTest(comment='verify Modules listed in report'):
+        with self.subTest(comment="verify Modules listed in report"):
             self.assertEqual(
-                len(applicability[0]['applicability']['modulemd']),
+                len(applicability[0]["applicability"]["modulemd"]),
                 1,
-                applicability[0]['applicability']['modulemd'],
+                applicability[0]["applicability"]["modulemd"],
             )
 
     def test_negative_modular_rpm(self):
@@ -1212,18 +1131,15 @@ class ModularApplicabilityTestCase(unittest.TestCase):
         be higher than what is offered by the module.
         """
         rpm_with_modules_metadata = MODULE_ARTIFACT_RPM_DATA.copy()
-        rpm_with_modules_metadata['version'] = '7'
+        rpm_with_modules_metadata["version"] = "7"
         modules_metadata = MODULES_METADATA.copy()
-        applicability = self.do_test(
-            [modules_metadata],
-            [rpm_with_modules_metadata],
-        )
+        applicability = self.do_test([modules_metadata], [rpm_with_modules_metadata])
         validate(applicability, CONTENT_APPLICABILITY_REPORT_SCHEMA)
-        with self.subTest(comment='verify Modules listed in report'):
+        with self.subTest(comment="verify Modules listed in report"):
             self.assertEqual(
-                len(applicability[0]['applicability']['modulemd']),
+                len(applicability[0]["applicability"]["modulemd"]),
                 0,
-                applicability[0]['applicability']['modulemd'],
+                applicability[0]["applicability"]["modulemd"],
             )
 
     def test_mixed_rpm(self):
@@ -1238,26 +1154,25 @@ class ModularApplicabilityTestCase(unittest.TestCase):
         """
         # Reduce the versions to check whether newer version applies.
         rpm_with_modules_metadata = MODULE_ARTIFACT_RPM_DATA.copy()
-        rpm_with_modules_metadata['version'] = '5'
+        rpm_with_modules_metadata["version"] = "5"
         modules_metadata = MODULES_METADATA.copy()
         rpm_with_erratum_metadata = RPM_WITH_ERRATUM_METADATA.copy()
-        rpm_with_erratum_metadata['version'] = '4.0'
+        rpm_with_erratum_metadata["version"] = "4.0"
         applicability = self.do_test(
-            [modules_metadata],
-            [rpm_with_modules_metadata, rpm_with_modules_metadata]
+            [modules_metadata], [rpm_with_modules_metadata, rpm_with_modules_metadata]
         )
         validate(applicability, CONTENT_APPLICABILITY_REPORT_SCHEMA)
-        with self.subTest(comment='verify Modules listed in report'):
+        with self.subTest(comment="verify Modules listed in report"):
             self.assertEqual(
-                len(applicability[0]['applicability']['modulemd']),
+                len(applicability[0]["applicability"]["modulemd"]),
                 1,
-                applicability[0]['applicability']['modulemd'],
+                applicability[0]["applicability"]["modulemd"],
             )
-        with self.subTest(comment='verify Modules listed in report'):
+        with self.subTest(comment="verify Modules listed in report"):
             self.assertEqual(
-                len(applicability[0]['applicability']['rpm']),
+                len(applicability[0]["applicability"]["rpm"]),
                 1,
-                applicability[0]['applicability']['rpm'],
+                applicability[0]["applicability"]["rpm"],
             )
 
     def test_dependent_modules(self):
@@ -1271,23 +1186,23 @@ class ModularApplicabilityTestCase(unittest.TestCase):
         """
         # Reduce the versions to check whether newer version applies.
         rpm_with_modules_metadata = MODULE_ARTIFACT_RPM_DATA.copy()
-        rpm_with_modules_metadata['version'] = '5'
+        rpm_with_modules_metadata["version"] = "5"
 
         rpm_with_modules_metadata_2 = MODULE_ARTIFACT_RPM_DATA_2.copy()
-        rpm_with_modules_metadata['version'] = '0.5'
+        rpm_with_modules_metadata["version"] = "0.5"
 
         modules_metadata = MODULES_METADATA.copy()
         modules_metadata_2 = MODULES_METADATA_2.copy()
         applicability = self.do_test(
             [modules_metadata, modules_metadata_2],
-            [rpm_with_modules_metadata, rpm_with_modules_metadata_2]
+            [rpm_with_modules_metadata, rpm_with_modules_metadata_2],
         )
         validate(applicability, CONTENT_APPLICABILITY_REPORT_SCHEMA)
-        with self.subTest(comment='verify Modules listed in report'):
+        with self.subTest(comment="verify Modules listed in report"):
             self.assertEqual(
-                len(applicability[0]['applicability']['modulemd']),
+                len(applicability[0]["applicability"]["modulemd"]),
                 2,
-                applicability[0]['applicability']['modulemd'],
+                applicability[0]["applicability"]["modulemd"],
             )
 
     def test_erratum_modules(self):
@@ -1300,20 +1215,18 @@ class ModularApplicabilityTestCase(unittest.TestCase):
         """
         # Reduce the versions to check whether newer version applies.
         rpm_with_modules_metadata = MODULE_ARTIFACT_RPM_DATA.copy()
-        rpm_with_modules_metadata['version'] = '5'
+        rpm_with_modules_metadata["version"] = "5"
         modules_metadata = MODULES_METADATA.copy()
         erratum = self.gen_modular_errata()
         applicability = self.do_test(
-            [modules_metadata],
-            [rpm_with_modules_metadata],
-            erratum
+            [modules_metadata], [rpm_with_modules_metadata], erratum
         )
         validate(applicability, CONTENT_APPLICABILITY_REPORT_SCHEMA)
-        with self.subTest(comment='verify Modules listed in report'):
+        with self.subTest(comment="verify Modules listed in report"):
             self.assertEqual(
-                len(applicability[0]['applicability']['erratum']),
+                len(applicability[0]["applicability"]["erratum"]),
                 1,
-                applicability[0]['applicability']['erratum'],
+                applicability[0]["applicability"]["erratum"],
             )
 
     def do_test(self, modules_profile, rpm_profile, erratum=None):
@@ -1333,100 +1246,105 @@ class ModularApplicabilityTestCase(unittest.TestCase):
         :returns: A dict containing the consumer ``applicability``.
         """
         body = gen_repo(
-            importer_config={'feed': RPM_WITH_MODULES_FEED_URL},
-            distributors=[gen_distributor(auto_publish=True)]
+            importer_config={"feed": RPM_WITH_MODULES_FEED_URL},
+            distributors=[gen_distributor(auto_publish=True)],
         )
         repo = self.client.post(REPOSITORY_PATH, body)
         sync_repo(self.cfg, repo)
-        repo = self.client.get(repo['_href'], params={'details': True})
+        repo = self.client.get(repo["_href"], params={"details": True})
         if erratum is not None:
             upload_import_erratum(self.cfg, erratum, repo)
-        self.addCleanup(self.client.delete, repo['_href'])
+        self.addCleanup(self.client.delete, repo["_href"])
 
         # Create a consumer.
         consumer = self.client.post(CONSUMERS_PATH, gen_consumer())
-        self.addCleanup(self.client.delete, consumer['consumer']['_href'])
+        self.addCleanup(self.client.delete, consumer["consumer"]["_href"])
 
         # Bind the consumer.
-        self.client.post(urljoin(consumer['consumer']['_href'], 'bindings/'), {
-            'distributor_id': repo['distributors'][0]['id'],
-            'notify_agent': False,
-            'repo_id': repo['id'],
-        })
+        self.client.post(
+            urljoin(consumer["consumer"]["_href"], "bindings/"),
+            {
+                "distributor_id": repo["distributors"][0]["id"],
+                "notify_agent": False,
+                "repo_id": repo["id"],
+            },
+        )
 
         # Create a consumer profile with RPM
         if rpm_profile:
             self.client.post(
-                urljoin(consumer['consumer']['_href'], 'profiles/'),
-                {'content_type': 'rpm', 'profile': rpm_profile}
+                urljoin(consumer["consumer"]["_href"], "profiles/"),
+                {"content_type": "rpm", "profile": rpm_profile},
             )
 
         # Create a consumer profile with modules.
         if modules_profile:
             self.client.post(
-                urljoin(consumer['consumer']['_href'], 'profiles/'),
-                {'content_type': 'modulemd', 'profile': modules_profile}
+                urljoin(consumer["consumer"]["_href"], "profiles/"),
+                {"content_type": "modulemd", "profile": modules_profile},
             )
 
         # Regenerate applicability.
         self.client.post(
             CONSUMERS_ACTIONS_CONTENT_REGENERATE_APPLICABILITY_PATH,
             {
-                'consumer_criteria': {
-                    'filters': {'id': {'$in': [consumer['consumer']['id']]}}}
+                "consumer_criteria": {
+                    "filters": {"id": {"$in": [consumer["consumer"]["id"]]}}
+                }
             },
         )
 
         # Fetch and Return applicability.
-        return self.client.post(CONSUMERS_CONTENT_APPLICABILITY_PATH, {
-            'criteria': {
-                'filters': {'id': {'$in': [consumer['consumer']['id']]}}
-            },
-        })
+        return self.client.post(
+            CONSUMERS_CONTENT_APPLICABILITY_PATH,
+            {"criteria": {"filters": {"id": {"$in": [consumer["consumer"]["id"]]}}}},
+        )
 
     @staticmethod
     def gen_modular_errata():
         """Generate and return a modular erratum with RPM."""
         return {
-            'id': utils.uuid4(),
-            'status': 'stable',
-            'updated': MODULE_ERRATA_RPM_DATA['updated'],
-            'rights': None,
-            'from': MODULE_ERRATA_RPM_DATA['from'],
-            'description': MODULE_ERRATA_RPM_DATA['description'],
-            'title': MODULE_ERRATA_RPM_DATA['rpm_name'],
-            'issued': MODULE_ERRATA_RPM_DATA['issued'],
-            'relogin_suggested': False,
-            'restart_suggested': False,
-            'solution': None,
-            'summary': None,
-            'pushcount': '1',
-            'version': '1',
-            'references': [],
-            'release': '1',
-            'reboot_suggested': None,
-            'type': 'enhancement',
-            'severity': None,
-            'pkglist': [{
-                'name': MODULE_ERRATA_RPM_DATA['collection_name'],
-                'short': '0',
-                'module': {
-                    'name': MODULE_ERRATA_RPM_DATA['rpm_name'],
-                    'stream': MODULE_ERRATA_RPM_DATA['stream_name'],
-                    'version': MODULE_ERRATA_RPM_DATA['version'],
-                    'arch': MODULE_ERRATA_RPM_DATA['arch'],
-                    'context': MODULE_ERRATA_RPM_DATA['context']
-                },
-                'packages': [
-                    {
-                        'arch': MODULE_ARTIFACT_RPM_DATA['arch'],
-                        'name': MODULE_ARTIFACT_RPM_DATA['name'],
-                        'release': MODULE_ARTIFACT_RPM_DATA['release'],
-                        'version': MODULE_ARTIFACT_RPM_DATA['version'],
-                        'src': MODULE_ARTIFACT_RPM_DATA['src']
-                    }
-                ]
-            }]
+            "id": utils.uuid4(),
+            "status": "stable",
+            "updated": MODULE_ERRATA_RPM_DATA["updated"],
+            "rights": None,
+            "from": MODULE_ERRATA_RPM_DATA["from"],
+            "description": MODULE_ERRATA_RPM_DATA["description"],
+            "title": MODULE_ERRATA_RPM_DATA["rpm_name"],
+            "issued": MODULE_ERRATA_RPM_DATA["issued"],
+            "relogin_suggested": False,
+            "restart_suggested": False,
+            "solution": None,
+            "summary": None,
+            "pushcount": "1",
+            "version": "1",
+            "references": [],
+            "release": "1",
+            "reboot_suggested": None,
+            "type": "enhancement",
+            "severity": None,
+            "pkglist": [
+                {
+                    "name": MODULE_ERRATA_RPM_DATA["collection_name"],
+                    "short": "0",
+                    "module": {
+                        "name": MODULE_ERRATA_RPM_DATA["rpm_name"],
+                        "stream": MODULE_ERRATA_RPM_DATA["stream_name"],
+                        "version": MODULE_ERRATA_RPM_DATA["version"],
+                        "arch": MODULE_ERRATA_RPM_DATA["arch"],
+                        "context": MODULE_ERRATA_RPM_DATA["context"],
+                    },
+                    "packages": [
+                        {
+                            "arch": MODULE_ARTIFACT_RPM_DATA["arch"],
+                            "name": MODULE_ARTIFACT_RPM_DATA["name"],
+                            "release": MODULE_ARTIFACT_RPM_DATA["release"],
+                            "version": MODULE_ARTIFACT_RPM_DATA["version"],
+                            "src": MODULE_ARTIFACT_RPM_DATA["src"],
+                        }
+                    ],
+                }
+            ],
         }
 
 
@@ -1437,12 +1355,15 @@ class ModularErrataCopyTestCase(unittest.TestCase):
 
     * `Pulp #4518 <https://pulp.plan.io/issues/4518>`_
     * `Pulp #4548 <https://pulp.plan.io/issues/4548>`_
+    * `Pulp #5055 <https://pulp.plan.io/issues/5055>`_
 
     Recursive copy of ``RHEA-2012:0059`` should copy:
 
     * 2 modules: ``duck`` and ``kangaroo``.
     * 2 modulemd_defaults ``duck`` and ``kangaroo``.
     * 2 RPMS: ``kangaroo-0.3-1.noarch.rpm``, and ``duck-0.7-1.noarch.rpm``.
+
+    Copy of modulemd_defaults introduced in Pulp 2.21.
 
     Exercise the use of ``recursive`` and ``recursive_conservative``.
     """
@@ -1451,8 +1372,8 @@ class ModularErrataCopyTestCase(unittest.TestCase):
     def setUpClass(cls):
         """Create class-wide variables."""
         cls.cfg = config.get_config()
-        if cls.cfg.pulp_version < Version('2.21'):
-            raise unittest.SkipTest('This test requires Pulp 2.21 or newer.')
+        if cls.cfg.pulp_version < Version("2.19"):
+            raise unittest.SkipTest("This test requires Pulp 2.19 or newer.")
         cls.client = api.Client(cls.cfg, api.json_handler)
 
     def test_recursive_noconservative_nodependency(self):
@@ -1482,109 +1403,111 @@ class ModularErrataCopyTestCase(unittest.TestCase):
 
     def make_assertions_dependency(self, repo):
         """Make assertions over a repo with an older version of RPM present."""
-        versions = sorted([
-            unit['metadata']['version']
-            for unit in search_units(self.cfg, repo, {'type_ids': ['rpm']})
-            if unit['metadata']['name'] == 'duck'
-        ])
+        versions = sorted(
+            [
+                unit["metadata"]["version"]
+                for unit in search_units(self.cfg, repo, {"type_ids": ["rpm"]})
+                if unit["metadata"]["name"] == "duck"
+            ]
+        )
 
         # 2 due to the older version already present on the repository.
         self.assertEqual(len(versions), 2, versions)
 
         self.assertEqual(
-            repo['content_unit_counts']['erratum'],
-            MODULE_FIXTURES_ERRATA['errata_count'],
-            repo['content_unit_counts']
+            repo["content_unit_counts"]["erratum"],
+            MODULE_FIXTURES_ERRATA["errata_count"],
+            repo["content_unit_counts"],
         )
 
         self.assertEqual(
-            repo['content_unit_counts']['modulemd'],
-            MODULE_FIXTURES_ERRATA['modules_count'],
-            repo['content_unit_counts']
+            repo["content_unit_counts"]["modulemd"],
+            MODULE_FIXTURES_ERRATA["modules_count"],
+            repo["content_unit_counts"],
         )
 
-        self.assertEqual(
-            repo['content_unit_counts']['modulemd_defaults'],
-            MODULE_FIXTURES_ERRATA['module_defaults_count'],
-            repo['content_unit_counts']
-        )
+        if self.cfg.pulp_version >= Version("2.21"):
+            self.assertEqual(
+                repo["content_unit_counts"]["modulemd_defaults"],
+                MODULE_FIXTURES_ERRATA["module_defaults_count"],
+                repo["content_unit_counts"],
+            )
 
         # older RPM package already present has to be added to total of RPM
         # packages after copy.
-        self.assertEqual(
-            repo['total_repository_units'],
-            MODULE_FIXTURES_ERRATA['total_available_units'] + 1,
-            repo
-        )
+        total_available_units = MODULE_FIXTURES_ERRATA["total_available_units"] + 1
+        if self.cfg.pulp_version < Version("2.21"):
+            # Pulp 2.21 introduced copy of module_defaults. There are 2.
+            total_available_units -= MODULE_FIXTURES_ERRATA["module_defaults_count"]
+
+        self.assertEqual(repo["total_repository_units"], total_available_units, repo)
 
     def make_assertions_nodependency(self, repo):
         """Make assertions over a repo without an older version RPM present."""
         self.assertEqual(
-            repo['content_unit_counts']['erratum'],
-            MODULE_FIXTURES_ERRATA['errata_count'],
-            repo['content_unit_counts']
+            repo["content_unit_counts"]["erratum"],
+            MODULE_FIXTURES_ERRATA["errata_count"],
+            repo["content_unit_counts"],
         )
 
         self.assertEqual(
-            repo['content_unit_counts']['modulemd'],
-            MODULE_FIXTURES_ERRATA['modules_count'],
-            repo['content_unit_counts']
+            repo["content_unit_counts"]["modulemd"],
+            MODULE_FIXTURES_ERRATA["modules_count"],
+            repo["content_unit_counts"],
         )
 
-        self.assertEqual(
-            repo['content_unit_counts']['modulemd_defaults'],
-            MODULE_FIXTURES_ERRATA['module_defaults_count'],
-            repo['content_unit_counts']
-        )
+        if self.cfg.pulp_version >= Version("2.21"):
 
-        self.assertEqual(
-            repo['total_repository_units'],
-            MODULE_FIXTURES_ERRATA['total_available_units'],
-            repo
-        )
+            self.assertEqual(
+                repo["content_unit_counts"]["modulemd_defaults"],
+                MODULE_FIXTURES_ERRATA["module_defaults_count"],
+                repo["content_unit_counts"],
+            )
+
+        total_available_units = MODULE_FIXTURES_ERRATA["total_available_units"]
+        if self.cfg.pulp_version < Version("2.21"):
+            # Pulp 2.21  introduced copy of module_defaults. There are 2.
+            total_available_units -= MODULE_FIXTURES_ERRATA["module_defaults_count"]
+
+        self.assertEqual(repo["total_repository_units"], total_available_units, repo)
 
     def copy_modular_errata(
-            self, recursive, recursive_conservative, old_dependency=False
+        self, recursive, recursive_conservative, old_dependency=False
     ):
         """Copy modular errata."""
         repos = []
         body = gen_repo(
-            importer_config={'feed': RPM_WITH_MODULES_FEED_URL},
-            distributors=[gen_distributor()]
+            importer_config={"feed": RPM_WITH_MODULES_FEED_URL},
+            distributors=[gen_distributor()],
         )
         repos.append(self.client.post(REPOSITORY_PATH, body))
-        self.addCleanup(self.client.delete, repos[0]['_href'])
+        self.addCleanup(self.client.delete, repos[0]["_href"])
         sync_repo(self.cfg, repos[0])
         repos.append(self.client.post(REPOSITORY_PATH, gen_repo()))
-        self.addCleanup(self.client.delete, repos[1]['_href'])
+        self.addCleanup(self.client.delete, repos[1]["_href"])
 
         override_config = {
-            'recursive': recursive,
-            'recursive_conservative': recursive_conservative
+            "recursive": recursive,
+            "recursive_conservative": recursive_conservative,
         }
         if old_dependency:
             rpm = utils.http_get(RPM_MODULAR_OLD_VERSION_URL)
-            upload_import_unit(
-                self.cfg,
-                rpm,
-                {'unit_type_id': 'rpm'}, repos[1]
-            )
-            units = search_units(self.cfg, repos[1], {'type_ids': ['rpm']})
+            upload_import_unit(self.cfg, rpm, {"unit_type_id": "rpm"}, repos[1])
+            units = search_units(self.cfg, repos[1], {"type_ids": ["rpm"]})
             self.assertEqual(len(units), 1, units)
 
-        self.client.post(urljoin(repos[1]['_href'], 'actions/associate/'), {
-            'source_repo_id': repos[0]['id'],
-            'override_config': override_config,
-            'criteria': {
-                'filters': {
-                    'unit': {
-                        'id': MODULE_FIXTURES_ERRATA['errata_id']
-                    },
+        self.client.post(
+            urljoin(repos[1]["_href"], "actions/associate/"),
+            {
+                "source_repo_id": repos[0]["id"],
+                "override_config": override_config,
+                "criteria": {
+                    "filters": {"unit": {"id": MODULE_FIXTURES_ERRATA["errata_id"]}},
+                    "type_ids": ["erratum"],
                 },
-                'type_ids': ['erratum'],
             },
-        },)
-        return self.client.get(repos[1]['_href'], params={'details': True})
+        )
+        return self.client.get(repos[1]["_href"], params={"details": True})
 
 
 class PackageManagerModuleListTestCase(unittest.TestCase):
@@ -1593,38 +1516,40 @@ class PackageManagerModuleListTestCase(unittest.TestCase):
     def test_all(self):
         """Package manager can read module list from a Pulp repository."""
         cfg = config.get_config()
-        if cfg.pulp_version < Version('2.17'):
-            raise unittest.SkipTest('This test requires Pulp 2.17 or newer.')
+        if cfg.pulp_version < Version("2.17"):
+            raise unittest.SkipTest("This test requires Pulp 2.17 or newer.")
         if not os_support_modularity(cfg):
             raise unittest.SkipTest(
-                'This test requires an OS that supports modularity.'
+                "This test requires an OS that supports modularity."
             )
         client = api.Client(cfg, api.json_handler)
         body = gen_repo(
-            importer_config={'feed': RPM_WITH_MODULES_FEED_URL},
-            distributors=[gen_distributor()]
+            importer_config={"feed": RPM_WITH_MODULES_FEED_URL},
+            distributors=[gen_distributor()],
         )
 
         repo = client.post(REPOSITORY_PATH, body)
-        self.addCleanup(client.delete, repo['_href'])
-        repo = client.get(repo['_href'], params={'details': True})
+        self.addCleanup(client.delete, repo["_href"])
+        repo = client.get(repo["_href"], params={"details": True})
         sync_repo(cfg, repo)
         publish_repo(cfg, repo)
-        repo = client.get(repo['_href'], params={'details': True})
+        repo = client.get(repo["_href"], params={"details": True})
         repo_path = gen_yum_config_file(
             cfg,
-            baseurl=urljoin(cfg.get_base_url(), urljoin(
-                'pulp/repos/',
-                repo['distributors'][0]['config']['relative_url']
-            )),
-            name=repo['_href'],
-            repositoryid=repo['id']
+            baseurl=urljoin(
+                cfg.get_base_url(),
+                urljoin(
+                    "pulp/repos/", repo["distributors"][0]["config"]["relative_url"]
+                ),
+            ),
+            name=repo["_href"],
+            repositoryid=repo["id"],
         )
         cli_client = cli.Client(cfg)
-        self.addCleanup(cli_client.run, ('rm', repo_path), sudo=True)
-        lines = cli_client.run((
-            ('dnf', 'module', 'list', '--all')
-        ), sudo=True).stdout.splitlines()
+        self.addCleanup(cli_client.run, ("rm", repo_path), sudo=True)
+        lines = cli_client.run(
+            (("dnf", "module", "list", "--all")), sudo=True
+        ).stdout.splitlines()
         for key, value in MODULE_FIXTURES_PACKAGES.items():
             with self.subTest(package=key):
                 module = [line for line in lines if key in line]
@@ -1638,34 +1563,33 @@ class UploadModuleTestCase(unittest.TestCase):
     def setUpClass(cls):
         """Create class wide variables."""
         cls.cfg = config.get_config()
-        if cls.cfg.pulp_version < Version('2.17'):
-            raise unittest.SkipTest('This test requires Pulp 2.17 or newer.')
+        if cls.cfg.pulp_version < Version("2.17"):
+            raise unittest.SkipTest("This test requires Pulp 2.17 or newer.")
         cls.client = api.Client(cls.cfg, api.json_handler)
 
     def test_upload_module(self):
         """Verify whether uploaded module.yaml is updated in the pulp repo."""
         # Create a normal repo without any data.
         body = gen_repo(
-            importer_config={'feed': RPM_UNSIGNED_FEED_URL},
-            distributors=[gen_distributor()]
+            importer_config={"feed": RPM_UNSIGNED_FEED_URL},
+            distributors=[gen_distributor()],
         )
         repo = self.client.post(REPOSITORY_PATH, body)
-        repo = self.client.get(repo['_href'], params={'details': True})
-        self.addCleanup(self.client.delete, repo['_href'])
+        repo = self.client.get(repo["_href"], params={"details": True})
+        self.addCleanup(self.client.delete, repo["_href"])
         sync_repo(self.cfg, repo)
 
         # download modules.yaml and upload it to pulp_repo
         unit = self._get_module_yaml_file(RPM_WITH_MODULES_FEED_URL)
-        upload_import_unit(self.cfg, unit, {
-            'unit_key': {},
-            'unit_type_id': 'modulemd',
-        }, repo)
-        repo = self.client.get(repo['_href'], params={'details': True})
+        upload_import_unit(
+            self.cfg, unit, {"unit_key": {}, "unit_type_id": "modulemd"}, repo
+        )
+        repo = self.client.get(repo["_href"], params={"details": True})
 
         # Assert that `modulemd` and `modulemd_defaults` are present on the
         # repository.
-        self.assertIsNotNone(repo['content_unit_counts']['modulemd'])
-        self.assertIsNotNone(repo['content_unit_counts']['modulemd_defaults'])
+        self.assertIsNotNone(repo["content_unit_counts"]["modulemd"])
+        self.assertIsNotNone(repo["content_unit_counts"]["modulemd_defaults"])
 
     def test_one_default_per_repo(self):
         """Verify changing the modules default content of modules.yaml.
@@ -1674,31 +1598,31 @@ class UploadModuleTestCase(unittest.TestCase):
         """
         # create repo
         body = gen_repo(
-            importer_config={'feed': RPM_WITH_MODULES_FEED_URL},
-            distributors=[gen_distributor()]
+            importer_config={"feed": RPM_WITH_MODULES_FEED_URL},
+            distributors=[gen_distributor()],
         )
         repo = self.client.post(REPOSITORY_PATH, body)
-        repo = self.client.get(repo['_href'], params={'details': True})
-        self.addCleanup(self.client.delete, repo['_href'])
+        repo = self.client.get(repo["_href"], params={"details": True})
+        self.addCleanup(self.client.delete, repo["_href"])
         sync_repo(self.cfg, repo)
 
         # Modify Modules.yaml and upload
         unit = self._get_module_yaml_file(RPM_WITH_MODULES_FEED_URL)
-        unit_string = unit.decode('utf-8')
+        unit_string = unit.decode("utf-8")
         unit_string = unit_string.replace(
-            'stream: {}'.format(MODULE_FIXTURES_PACKAGE_STREAM['stream']),
-            'stream: {}'.format(MODULE_FIXTURES_PACKAGE_STREAM['new_stream'])
+            "stream: {}".format(MODULE_FIXTURES_PACKAGE_STREAM["stream"]),
+            "stream: {}".format(MODULE_FIXTURES_PACKAGE_STREAM["new_stream"]),
         )
         unit = unit_string.encode()
-        upload_import_unit(self.cfg, unit, {
-            'unit_key': {},
-            'unit_type_id': 'modulemd',
-        }, repo)
-        repo = self.client.get(repo['_href'], params={'details': True})
+        upload_import_unit(
+            self.cfg, unit, {"unit_key": {}, "unit_type_id": "modulemd"}, repo
+        )
+        repo = self.client.get(repo["_href"], params={"details": True})
         self.assertEqual(
-            repo['content_unit_counts']['modulemd_defaults'],
+            repo["content_unit_counts"]["modulemd_defaults"],
             3,
-            repo['content_unit_counts'])
+            repo["content_unit_counts"],
+        )
 
     @staticmethod
     def _get_module_yaml_file(path):
@@ -1709,7 +1633,7 @@ class UploadModuleTestCase(unittest.TestCase):
         repository's ``[…]-modules.yaml`` file. The path is likely to be in the
         form ``repodata/[…]-modules.yaml.gz``.
         """
-        repo_path = urljoin(path, 'repodata/repomd.xml')
+        repo_path = urljoin(path, "repodata/repomd.xml")
         response = utils.http_get(repo_path)
         root_elem = ElementTree.fromstring(response)
 
@@ -1721,13 +1645,12 @@ class UploadModuleTestCase(unittest.TestCase):
         #     </ns0:data>
         #     …
 
-        xpath = '{{{}}}data'.format(RPM_NAMESPACES['metadata/repo'])
+        xpath = "{{{}}}data".format(RPM_NAMESPACES["metadata/repo"])
         data_elements = [
-            elem for elem in root_elem.findall(xpath)
-            if elem.get('type') == 'modules'
+            elem for elem in root_elem.findall(xpath) if elem.get("type") == "modules"
         ]
-        xpath = '{{{}}}location'.format(RPM_NAMESPACES['metadata/repo'])
-        relative_path = data_elements[0].find(xpath).get('href')
+        xpath = "{{{}}}location".format(RPM_NAMESPACES["metadata/repo"])
+        relative_path = data_elements[0].find(xpath).get("href")
         unit = utils.http_get(urljoin(path, relative_path))
         with io.BytesIO(unit) as compressed:
             with gzip.GzipFile(fileobj=compressed) as decompressed:
